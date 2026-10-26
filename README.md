@@ -13,7 +13,6 @@ The system integrates real-time institutional order book dynamics, Level-3 trade
 
 ## 🏛️ Master Protocol & Constitutional Documentation
 * **[ZeroZero_Protocol_V16_Sovereign_Master.md](file:///c:/Users/ersan/Desktop/ZERO_BTC_FINAL/ZeroZero_Protocol_V16_Sovereign_Master.md)**: The supreme constitutional protocol defining all 5 execution engines, 15+ mandatory zero-tolerance vetoes, dynamic risk management, and the cumulative rule evolution across all 90 recorded trades.
-* **[ZeroZero_Sovereign_Forensic_V16.pine](file:///c:/Users/ersan/Desktop/ZERO_BTC_FINAL/ZeroZero_Sovereign_Forensic_V16.pine)**: The production Pine Script V5 indicator engine for TradingView visualization (Anchored VWAP bands, Bearish/Bullish FVG detection, Sweep-Reclaim triggers).
 * **[price_analysis/CONTINUOUS_FORENSIC_JOURNAL.md](file:///c:/Users/ersan/Desktop/ZERO_BTC_FINAL/price_analysis/CONTINUOUS_FORENSIC_JOURNAL.md)**: The continuous live forensic journal documenting all 30-minute forensic cycles (Cycles 1000 through 1106+).
 
 ---
