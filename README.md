@@ -26,9 +26,9 @@ The system integrates real-time institutional order book dynamics, Level-3 trade
 
 ---
 
-## 📊 Telemetry Dataset (Last 3 Days)
+## 📊 Telemetry Dataset (October 18 - 26, 2026)
 Located in `price_analysis/بيانات/`:
-* Contains complete microsecond-level telemetry snapshots (`BTCUSDT_snapshot_*.json`) captured across the last 3 days of institutional market action.
+* Contains over **500 microsecond-level telemetry snapshots** (`BTCUSDT_snapshot_*.json`) captured across 6+ days of institutional market action (October 18 through October 26, 2026).
 * Each snapshot captures:
   - Exact order book bid/ask distributions
   - Stoikov micro-price & arrival rates
