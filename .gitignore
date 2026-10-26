@@ -1,0 +1,28 @@
+# Python bytecode & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+Lib_311/
+.gemini_context/
+.agents/
+
+# Lock & log files
+*.lock
+*.log
+logs/
+
+# Default ignore for large historical snapshots
+price_analysis/بيانات/BTCUSDT_snapshot_*.json
+price_analysis/بيانات/btc_snapshot_*.json
+
+# Temporary scratch and extraction artifacts
+scratch/
+archive_macro_skills/
+*.png
+*.csv
+*.html
+*.docx

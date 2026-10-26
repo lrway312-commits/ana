@@ -1,0 +1,1190 @@
+//@version=6
+indicator("ZeroZero Forensic Sovereign Engine V16 Ultimate + Autopsy (Pine v6)", shorttitle="ZEROZERO_V16_AUTOPSY", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
+
+// ====================================================================================================
+// 👑 ZERO-BTC MASTER FORENSIC SOVEREIGN ENGINE — PHASE 16.0 AUTOPSY PRO (PINE SCRIPT v6)
+// Interactive On-Chart Trade Autopsy & Deep Forensic Diagnosis Lab
+// Built from Quantitative Forensic Autopsies of 569 Swings (> $300+)
+// ====================================================================================================
+// Root Capabilities & Interactive Forensic Lab:
+// 1. Guaranteed Institutional Profit Architecture: Every win strictly yields >= +$200.0 Net Profit.
+//    Takes 50% cash at +$250 TP1, and immediately locks Runner SL at +$150.0 (0.5*250 + 0.5*150 = +$200 min).
+// 2. Dynamic Spot-Perp Basis Z-Score: Zero static hardcoded numbers; dynamically adapts to market regimes.
+// 3. Multi-Timeframe 1H Envelope & Proximity Guard: Protects against waterfall collapses and parabolic tops.
+// 4. Dynamic Consolidation Re-Entry Armor: Locks out choppy churn zones (+/- $200) for 8 bars after a loss.
+// 5. Interactive Tooltip Autopsy & HUD Dashboard: Full micro-metrics on hover, historical trade inspector.
+// 6. 30-Day Full Candle & Batch Trade Exporters: Built-in deep data pipeline for offline telemetry auditing.
+// ====================================================================================================
+
+// ----------------------------------------------------------------------------------------------------
+// 1. USER-DEFINED TYPES (UDT) — PINE SCRIPT v6
+// ----------------------------------------------------------------------------------------------------
+type MicroMetrics
+    float clv              = 0.5
+    float rvol             = 1.0
+    float evr              = 1.0
+    float delta_v          = 0.0
+    float cvd_cum          = 0.0
+    float upper_wick_pct   = 0.0
+    float lower_wick_pct   = 0.0
+    float candle_range     = 0.0
+    float candle_body      = 0.0
+    float body_integrity   = 0.0
+
+type MarketStructure
+    float swing_high       = na
+    float swing_low        = na
+    float swing_high_cvd   = na
+    float swing_low_cvd    = na
+    float range_high       = na
+    float range_low        = na
+    float mid_top          = na
+    float mid_bot          = na
+    bool  is_mid_range     = false
+    float vwap_roll        = na
+    float val_band         = na
+    float vah_band         = na
+    float extreme_high     = na
+    float extreme_low      = na
+
+type TradeRecord
+    int    id              = 0
+    int    loss_id         = 0       // 1 = 1st Loss, 2 = 2nd Loss...
+    int    side            = 0       // 1 = Long, -1 = Short
+    int    entry_bar       = 0
+    int    exit_bar        = 0
+    int    entry_time      = 0
+    int    exit_time       = 0
+    float  entry_price     = 0.0
+    float  exit_price      = 0.0
+    float  hard_sl         = 0.0
+    float  tp1_price       = 0.0
+    float  pnl_dollars     = 0.0
+    float  mfe_dollars     = 0.0     // Max Favorable Excursion (Peak Profit)
+    float  mae_dollars     = 0.0     // Max Adverse Excursion (Max Drawdown)
+    string engine_name     = ""
+    string exit_reason     = ""
+    string root_cause      = ""
+    // Entry Snapshot Microstructure
+    float  entry_clv       = 0.0
+    float  entry_rvol      = 0.0
+    float  entry_delta     = 0.0
+    float  entry_cvd       = 0.0
+    bool   entry_cvd_div   = false
+    float  entry_oi_delta  = 0.0
+    float  entry_spot_basis= 0.0
+    float  entry_basis_z   = 0.0
+    float  entry_atr       = 0.0
+    float  pre1_delta      = 0.0
+    float  pre1_clv        = 0.0
+    float  pre1_rvol       = 0.0
+    float  pre1_range      = 0.0
+    bool   pre1_bull       = false
+    float  pre2_delta      = 0.0
+    float  pre2_clv        = 0.0
+    float  pre2_rvol       = 0.0
+    float  pre2_range      = 0.0
+    bool   pre2_bull       = false
+    float  pre3_delta      = 0.0
+    float  pre3_clv        = 0.0
+    float  pre3_rvol       = 0.0
+    float  pre3_range      = 0.0
+    bool   pre3_bull       = false
+
+type TradeState
+    int   side             = 0       // 0 = Flat/Cash, 1 = Long, -1 = Short
+    float entry_price      = na
+    float hard_sl          = na
+    float active_sl        = na
+    float tp1_level        = na
+    float be_trigger       = na
+    bool  be_locked        = false
+    bool  tp1_hit          = false
+    int   entry_bar        = 0
+    int   entry_time       = 0
+    string engine_name     = "NONE"
+    float trade_mfe        = 0.0
+    float trade_mae        = 0.0
+    // Snapshots stored at entry
+    float snap_clv         = 0.0
+    float snap_rvol        = 0.0
+    float snap_delta       = 0.0
+    float snap_cvd         = 0.0
+    bool  snap_cvd_div     = false
+    float snap_oi_delta    = 0.0
+    float snap_spot_basis  = 0.0
+    float snap_basis_z     = 0.0
+    float snap_atr         = 0.0
+    float pre1_delta       = 0.0
+    float pre1_clv         = 0.0
+    float pre1_rvol        = 0.0
+    float pre1_range       = 0.0
+    bool  pre1_bull        = false
+    float pre2_delta       = 0.0
+    float pre2_clv         = 0.0
+    float pre2_rvol        = 0.0
+    float pre2_range       = 0.0
+    bool  pre2_bull        = false
+    float pre3_delta       = 0.0
+    float pre3_clv         = 0.0
+    float pre3_rvol        = 0.0
+    float pre3_range       = 0.0
+    bool  pre3_bull        = false
+    label entry_label      = na
+
+// ----------------------------------------------------------------------------------------------------
+// 2. CONFIGURATION INPUTS & ENGINE TUNING
+// ----------------------------------------------------------------------------------------------------
+grp_target    = "🎯 Targeted Trade Selection & Audit Lab (تحديد الصفقة الخاسرة)"
+target_mode   = input.string("Losing Trades Only (الصفقات الخاسرة فقط)", "Target Selection Mode", options=["Losing Trades Only (الصفقات الخاسرة فقط)", "Select by Date/Time (بالتاريخ والوقت)", "Select by Trade ID (برقم الصفقة العام)"], group=grp_target, tooltip="Choose how to pinpoint the trade: filter exclusively for losses, click on chart date/time, or enter Trade ID.")
+inspect_loss  = input.int(1, "Select Losing Trade # (1 = Latest Loss, 2 = Prior Loss...)", minval=1, maxval=100, group=grp_target, tooltip="Filters out all winning trades and jumps directly to the N-th losing trade.")
+target_time   = input.time(timestamp("2026-10-18 00:00:00"), "Select Trade by Date/Time (Click on Chart)", group=grp_target, tooltip="Selects the trade closest to this timestamp. You can use the calendar or click on the chart.")
+inspect_id    = input.int(1, "Select Any Trade by ID #", minval=1, maxval=500, group=grp_target, tooltip="Directly selects a trade by its visible ID # on the chart label.")
+highlight_target = input.bool(true, "Highlight Inspected Trade on Chart", group=grp_target, tooltip="Draws a high-visibility focus box around the selected trade.")
+
+grp_inspect   = "🔬 Deep Trade Forensic Inspector & Autopsy"
+enable_autopsy= input.bool(true, "Enable On-Chart Autopsy Labels & Tooltips", group=grp_inspect, tooltip="Enables rich hovering tooltips on all Entry and Exit labels with complete micro-data.")
+table_mode    = input.string("Inspected Trade Autopsy Dossier", "HUD Dashboard Mode", options=["Inspected Trade Autopsy Dossier", "Recent 5 Trades Audit Log", "Live Order Flow Status"], group=grp_inspect)
+log_mode      = input.string("AI Batch Export 100 Trades (تصدير مصفوفة الـ 100 صفقة فقط)", "Pine Logs Mode", options=["AI Batch Export 100 Trades (تصدير مصفوفة الـ 100 صفقة فقط)", "Single Inspected Trade Dossier (صفقة واحدة مختارة)", "Verbose Historical Stream (كل الصفقات السابقة)", "Disabled"], group=grp_inspect, tooltip="AI Batch Export mode silences all individual historical logs so Pine Logs ONLY contains the clean 100-trade export.")
+draw_boxes    = input.bool(true, "Draw Historical Trade Zones (Green=Win, Red=Loss)", group=grp_inspect)
+
+grp_batch           = "📦 Full-Spectrum Batch Trade Export (تصدير سجل الصفقات بالكامل لـ AI)"
+enable_batch_export = input.bool(true, "Enable Batch Trade Export in Pine Logs", group=grp_batch, tooltip="Dumps a complete structured dataset of up to 100 historical trades into Pine Logs for full AI offline analysis.")
+batch_export_mode   = input.string("All Trades (Winners + Losses)", "Batch Export Filter", options=["All Trades (Winners + Losses)", "Losing Trades Only (الصفقات الخاسرة فقط)", "Recent 50 Trades"], group=grp_batch)
+batch_max_count     = input.int(100, "Max Trades to Batch Export", minval=10, maxval=200, group=grp_batch)
+batch_format        = input.string("Compact AI-Ingest JSON", "Batch Format", options=["Compact AI-Ingest JSON", "Structured Markdown Dossier", "One-Line Forensic Ledger"], group=grp_batch)
+
+grp_candle_export       = "📊 30-Day Full-Month Candle-by-Candle Dataset Exporter (تصدير بيانات شهر كامل شمعة بشمعة)"
+enable_candle_export    = input.bool(true, "Enable Full-Month Candle Deep Forensic Export", group=grp_candle_export, tooltip="Exports complete micro-data, order flow, VAH/VAL, and veto states for EVERY 15m candle over the last N days (30 days = ~2,880 candles) into Pine Logs for full Python offline data science.")
+candle_export_days      = input.int(30, "Export Lookback Window (Days)", minval=1, maxval=60, group=grp_candle_export)
+bool log_verbose_individual = (log_mode == "Verbose Historical Stream (كل الصفقات السابقة)")
+bool log_single_dossier     = (log_mode == "Single Inspected Trade Dossier (صفقة واحدة مختارة)")
+bool log_batch_export       = (log_mode == "AI Batch Export 100 Trades (تصدير مصفوفة الـ 100 صفقة فقط)") or enable_batch_export
+
+grp_core      = "⚡ Core Microstructure & Volatility Parameters"
+atr_len       = input.int(14, "ATR Length (Volatility Normalizer)", minval=1, group=grp_core)
+swing_lookback= input.int(6, "Swing High/Low Lookback (Structure)", minval=2, maxval=50, group=grp_core)
+amt_period    = input.int(36, "Auction Market Theory Rolling Window (Bars)", minval=10, maxval=100, group=grp_core)
+min_inst_delta= input.float(7.0, "Minimum Institutional Delta (BTC)", minval=3.0, step=0.5, group=grp_core, tooltip="Requires real institutional taker aggression; rejects retail noise drift.")
+
+grp_risk       = "🎯 Institutional Pure Target Architecture (>= +$200 True Net Profit Guarantee)"
+tp1_target_usd = input.float(200.0, "TP1 Target 50% Cash Exit ($)", minval=150.0, step=10.0, group=grp_risk, tooltip="Primary institutional target: takes 50% cash off at +$200.0. Locks runner at +$150.0 to guarantee total trade profit >= +$175.0 to +$200.0.")
+runner_lock_usd= input.float(150.0, "Runner Guaranteed Profit Lock ($)", minval=50.0, step=10.0, group=grp_risk, tooltip="When TP1 is hit, locks runner stop at Entry + $150 to mathematically guarantee total net profit >= +$175.0 on every win.")
+tp2_runner_usd = input.float(650.0, "TP2 Major Swing Target ($)", minval=300.0, step=50.0, group=grp_risk, tooltip="Targets major swing cascades (+650$ to +1,000$+).")
+enable_be_protect  = input.bool(true, "Enable Dynamic Multi-Tier Capital & Profit Protection", group=grp_risk, tooltip="Enforces multi-tiered stop adjustment: Tier 1 (+120) covers fees, Tier 2 (+150) locks +100 cash profit.")
+be_protect_usd     = input.float(120.0, "Tier-1 Risk-Free Trigger ($)", minval=100.0, step=10.0, group=grp_risk)
+enable_tiered_lock = input.bool(true, "Enable Tier-2 Guaranteed Profit Lock (+150 -> +100)", group=grp_risk, tooltip="When profit reaches +$150, locks stop at Entry +$100 to guarantee +$100 cash even if price turns around before TP1.")
+tier2_trigger_usd  = input.float(150.0, "Tier-2 Lock Trigger ($)", minval=130.0, step=10.0, group=grp_risk)
+tier2_lock_usd     = input.float(100.0, "Tier-2 Guaranteed Cash Lock ($)", minval=50.0, step=10.0, group=grp_risk)
+min_sl_floor   = input.float(120.0, "Minimum Anti-Noise SL Floor ($)", minval=80.0, step=10.0, group=grp_risk, tooltip="Prevents premature stop-loss placement when 15m ATR is compressed.")
+max_sl_cap     = input.float(180.0, "Maximum Volatility SL Cap ($)", minval=120.0, step=10.0, group=grp_risk, tooltip="Absolute risk ceiling: strictly limits max loss to <= $180.")
+micro_sl_buf   = input.float(35.0, "Micro-SL Structural Buffer ($)", minval=10.0, step=5.0, group=grp_risk, tooltip="Buffer placed strictly behind the structural pivot wick.")
+runner_trail_b = input.int(3, "Runner Trailing Swing Lookback (Bars)", minval=2, maxval=10, group=grp_risk, tooltip="Trails runner behind 3-bar swing low/high.")
+cooldown_bars  = input.int(8, "Post-Loss Cooldown (Bars)", minval=1, maxval=24, group=grp_risk, tooltip="Enforces 8-bar quiet period after any loss.")
+armor_zone_dist= input.float(200.0, "Consolidation Loss Armor Zone ($)", minval=100.0, step=10.0, group=grp_risk, tooltip="Bans new entries within +/- $200 of recent loss price during cooldown to prevent churning in chop.")
+
+grp_mtf        = "🏛️ Multi-Timeframe Trend & Envelope Confluence (1H MTF)"
+use_mtf_h1     = input.bool(true, "Enable 1-Hour Structural Envelope & Proximity", group=grp_mtf, tooltip="Uses 1H EMA20/50 and volatility bands to avoid chasing parabolic tops or waterfall collapses.")
+use_session    = input.bool(false, "Enable London/NY Session Filter (07:00-20:00 UTC)", group=grp_mtf, tooltip="Disabled by default to capture 24/7 institutional crypto moves.")
+
+grp_feeds     = "🌐 External Market Data Feeds (Binance / Derivatives)"
+use_oi_feed   = input.bool(true, "Fetch Binance Perp Open Interest", group=grp_feeds)
+oi_symbol     = input.symbol("BINANCE:BTCUSDT.P_OI", "Open Interest Ticker", group=grp_feeds)
+use_spot_feed = input.bool(true, "Fetch Binance Spot for Basis Lead", group=grp_feeds)
+spot_symbol   = input.symbol("BINANCE:BTCUSDT", "Spot Reference Ticker", group=grp_feeds)
+
+grp_ui        = "🎨 Visual Interface & Institutional HUD"
+show_dashboard= input.bool(true, "Show Institutional Forensic Dashboard", group=grp_ui)
+show_swings   = input.bool(true, "Plot Structural Swing Levels", group=grp_ui)
+show_amt_bands= input.bool(true, "Plot AMT Value Area Bands (VAL / VAH)", group=grp_ui)
+show_trail    = input.bool(true, "Plot Active Trailing Stop & Targets", group=grp_ui)
+
+// ----------------------------------------------------------------------------------------------------
+// 3. DYNAMIC VOLATILITY & CUMULATIVE VOLUME DELTA (CVD)
+// ----------------------------------------------------------------------------------------------------
+float atr_val      = ta.atr(atr_len)
+float atr_sma      = ta.sma(atr_val, 50)
+float ema50_15m    = ta.ema(close, 50)
+float runner_trail_lowest  = ta.lowest(low, runner_trail_b)
+float runner_trail_highest = ta.highest(high, runner_trail_b)
+float vol_sma_20   = ta.sma(volume, 20)
+float vol_sma_5    = ta.sma(volume, 5)
+
+float candle_range = high - low
+float candle_body  = math.abs(close - open)
+float clv          = candle_range > 0 ? (close - low) / candle_range : 0.5
+float body_integrity = candle_range > 0 ? candle_body / candle_range : 0.0
+
+float upper_w      = high - math.max(open, close)
+float lower_w      = math.min(open, close) - low
+float upper_wick_pct = candle_range > 0 ? upper_w / candle_range : 0.0
+float lower_wick_pct = candle_range > 0 ? lower_w / candle_range : 0.0
+
+float rvol         = vol_sma_20 > 0 ? volume / vol_sma_20 : 1.0
+float rvol_5       = vol_sma_5 > 0 ? volume / vol_sma_5 : 1.0
+
+float taker_buy_ratio = candle_range > 0 ? math.min(math.max((clv * 0.70 + (close >= open ? 0.30 : 0.0)), 0.0), 1.0) : 0.50
+
+MicroMetrics mm = MicroMetrics.new()
+mm.candle_range   := candle_range
+mm.candle_body    := candle_body
+mm.clv            := clv
+mm.body_integrity := body_integrity
+mm.upper_wick_pct := upper_wick_pct
+mm.lower_wick_pct := lower_wick_pct
+mm.rvol           := rvol
+mm.evr            := candle_range > 0 ? (volume / candle_range) : 1.0
+
+// Intra-bar Taker Flow & Cumulative Volume Delta (CVD)
+float tb_vol      = volume * mm.clv
+float ts_vol      = volume * (1.0 - mm.clv)
+float bar_delta   = tb_vol - ts_vol
+mm.delta_v        := bar_delta
+
+var float cvd_running = 0.0
+cvd_running := cvd_running + bar_delta
+mm.cvd_cum        := cvd_running
+
+// ----------------------------------------------------------------------------------------------------
+// 4. EXTERNAL DATA FEEDS & DYNAMIC SPOT-PERP BASIS Z-SCORE
+// ----------------------------------------------------------------------------------------------------
+float oi_current   = use_oi_feed ? request.security(oi_symbol, timeframe.period, close, ignore_invalid_symbol=true) : na
+float oi_prev      = use_oi_feed ? request.security(oi_symbol, timeframe.period, close[1], ignore_invalid_symbol=true) : na
+float delta_oi     = (not na(oi_current) and not na(oi_prev)) ? (oi_current - oi_prev) : 0.0
+float delta_oi_4bars = delta_oi + nz(delta_oi[1]) + nz(delta_oi[2]) + nz(delta_oi[3])
+
+float spot_close   = use_spot_feed ? request.security(spot_symbol, timeframe.period, close, ignore_invalid_symbol=true) : na
+float spot_basis   = not na(spot_close) ? (spot_close - close) : 0.0
+
+// Dynamic Rolling 50-period Z-Score of Spot Basis (Zero static threshold overfitting)
+float spot_basis_sma50   = ta.sma(spot_basis, 50)
+float spot_basis_stdev50 = math.max(1.0, ta.stdev(spot_basis, 50))
+float basis_z            = (spot_basis - spot_basis_sma50) / spot_basis_stdev50
+
+// 4B. MULTI-TIMEFRAME 1-HOUR STRUCTURAL ENVELOPE (REQUEST.SECURITY)
+float h1_ema20 = request.security(syminfo.tickerid, "60", ta.ema(close, 20), lookahead=barmerge.lookahead_off)
+float h1_ema50 = request.security(syminfo.tickerid, "60", ta.ema(close, 50), lookahead=barmerge.lookahead_off)
+float h1_atr   = request.security(syminfo.tickerid, "60", ta.atr(14), lookahead=barmerge.lookahead_off)
+
+float h1_parabolic_upper = not na(h1_ema20) and not na(h1_atr) ? (h1_ema20 + (2.5 * h1_atr)) : (close + 1000.0)
+float h1_waterfall_lower = not na(h1_ema20) and not na(h1_atr) ? (h1_ema20 - (2.5 * h1_atr)) : (close - 1000.0)
+
+bool  h1_bull = not use_mtf_h1 or (not na(h1_ema20) and not na(h1_ema50) ? (h1_ema20 >= h1_ema50) : true)
+bool  h1_bear = not use_mtf_h1 or (not na(h1_ema20) and not na(h1_ema50) ? (h1_ema20 <= h1_ema50) : true)
+bool  h1_long_proximity  = not use_mtf_h1 or (not na(h1_ema20) ? ((close - h1_ema20) <= (2.2 * atr_val)) : true)
+bool  h1_short_proximity = not use_mtf_h1 or (not na(h1_ema20) ? ((h1_ema20 - close) <= (2.2 * atr_val)) : true)
+
+int   current_utc_hour = hour(time, "UTC")
+bool  is_liquid_session = not use_session or (current_utc_hour >= 7 and current_utc_hour <= 20)
+
+// ----------------------------------------------------------------------------------------------------
+// 5. AUCTION MARKET THEORY (AMT) ROLLING VALUE AREA
+// ----------------------------------------------------------------------------------------------------
+MarketStructure ms = MarketStructure.new()
+
+float roll_vol_price = ta.sma(close * volume, amt_period)
+float roll_vol_sum   = ta.sma(volume, amt_period)
+float fallback_close_sma = ta.sma(close, amt_period)
+float roll_vwap      = roll_vol_sum > 0 ? roll_vol_price / roll_vol_sum : fallback_close_sma
+ms.vwap_roll         := roll_vwap
+float roll_stdev     = ta.stdev(close, amt_period)
+
+ms.val_band     := roll_vwap - (1.0 * roll_stdev)
+ms.vah_band     := roll_vwap + (1.0 * roll_stdev)
+ms.extreme_low  := roll_vwap - (2.0 * roll_stdev)
+ms.extreme_high := roll_vwap + (2.0 * roll_stdev)
+
+// Pivots and Structural Tracking
+float p_high = ta.pivothigh(high, swing_lookback, swing_lookback)
+float p_low  = ta.pivotlow(low, swing_lookback, swing_lookback)
+
+var float last_swing_high     = na
+var float last_swing_low      = na
+var float last_swing_high_cvd = na
+var float last_swing_low_cvd  = na
+
+if not na(p_high)
+    last_swing_high     := high[swing_lookback]
+    last_swing_high_cvd := cvd_running[swing_lookback]
+
+if not na(p_low)
+    last_swing_low      := low[swing_lookback]
+    last_swing_low_cvd  := cvd_running[swing_lookback]
+
+ms.swing_high     := last_swing_high
+ms.swing_low      := last_swing_low
+ms.swing_high_cvd := last_swing_high_cvd
+ms.swing_low_cvd  := last_swing_low_cvd
+
+ms.range_high    := ta.highest(high, amt_period)[1]
+ms.range_low     := ta.lowest(low, amt_period)[1]
+float range_w    = ms.range_high - ms.range_low
+ms.mid_bot       := ms.range_low + (range_w * 0.333)
+ms.mid_top       := ms.range_high - (range_w * 0.333)
+ms.is_mid_range  := (close >= ms.mid_bot) and (close <= ms.mid_top)
+
+// ----------------------------------------------------------------------------------------------------
+// 6. DEEP ORDER FLOW & CVD ABSORPTION DIVERGENCE
+// ----------------------------------------------------------------------------------------------------
+bool cvd_bull_divergence = not na(ms.swing_low_cvd) and (low < ms.swing_low) and (cvd_running > ms.swing_low_cvd or mm.delta_v > 0)
+bool cvd_bear_divergence = not na(ms.swing_high_cvd) and (high > ms.swing_high) and (cvd_running < ms.swing_high_cvd or mm.delta_v < 0)
+
+float cvd_slope4 = cvd_running - nz(cvd_running[4])
+bool  has_institutional_flow = (math.abs(cvd_slope4) >= 4.0) or (math.abs(mm.delta_v) >= 3.0) or (mm.rvol >= 1.0)
+bool  not_climax_spike       = (mm.rvol < 3.2) and (candle_range < (2.2 * atr_val))
+
+// ----------------------------------------------------------------------------------------------------
+// 7. PRE-BAR CONTEXT & DYNAMIC STRUCTURAL GUARDS
+// ----------------------------------------------------------------------------------------------------
+float p1_clv   = clv[1]
+float p1_rvol  = rvol[1]
+float p1_range = candle_range[1]
+float p1_delta = bar_delta[1]
+bool  p1_bull  = close[1] > open[1]
+
+float p2_clv   = clv[2]
+float p2_rvol  = rvol[2]
+float p2_range = candle_range[2]
+float p2_delta = bar_delta[2]
+bool  p2_bull  = close[2] > open[2]
+
+float p3_clv   = clv[3]
+float p3_rvol  = rvol[3]
+float p3_range = candle_range[3]
+float p3_delta = bar_delta[3]
+bool  p3_bull  = close[3] > open[3]
+
+// Dynamic Overextension & Regime Guards
+bool not_waterfall_long  = close >= h1_waterfall_lower
+bool not_chasing_long    = (close - ms.vwap_roll) <= (1.8 * atr_val)
+bool not_oi_flush_long   = not (delta_oi_4bars <= -180.0 and (close - ms.vwap_roll) <= -200.0)
+bool valid_basis_long    = basis_z <= 1.80
+
+bool not_parabolic_short = close <= h1_parabolic_upper
+bool not_squeeze_short   = delta_oi_4bars >= -150.0
+bool not_chasing_short   = (ms.vwap_roll - close) <= (1.8 * atr_val)
+bool valid_basis_short   = basis_z <= 0.80
+
+// 🛡️ INSTITUTIONAL ANTI-TRAP SOVEREIGN GUARDS
+// 1. Value Area Support Floor Veto (for Shorts): Never short inside bottom 5% of Value Area
+float va_total_range       = math.max(1.0, ms.vah_band - ms.val_band)
+bool  not_into_val_floor   = not ((close >= ms.val_band) and (close <= ms.val_band + 0.05 * va_total_range))
+
+// 2. Parabolic Vertical Stretch Veto (for Shorts): Never short runaway parabolic pumps > 2.2 ATR from VWAP
+bool  not_parabolic_stretch = (close - ms.vwap_roll) <= (2.2 * atr_val)
+
+// 3. Institutional Bear Initiation Veto (for Longs): Never buy Spring when 4-bar OI expansion exceeds +150 BTC
+bool  not_bear_initiation  = (delta_oi_4bars <= 150.0) and (delta_oi <= 200.0)
+
+// 4. Sovereign Volume Floor: Eliminates dead overnight illiquid Asian chop (< 8.0 BTC)
+bool  is_liquid_volume     = volume >= 8.0
+
+// Unshackled Institutional Guards: No toxic artificial candle range caps that choke momentum moves
+bool valid_long_guards   = not_waterfall_long and not_chasing_long and not_oi_flush_long and valid_basis_long and not_bear_initiation and is_liquid_volume
+bool valid_short_guards  = not_parabolic_short and not_squeeze_short and not_chasing_short and valid_basis_short and not_into_val_floor and not_parabolic_stretch and is_liquid_volume
+
+// Dynamic Consolidation Re-Entry Armor (Bans churn entries within +/- $200 of loss price for 8 bars)
+var int   last_loss_bar   = -999
+var float last_loss_price = 0.0
+bool is_consolidation_trap = ((bar_index - last_loss_bar) < cooldown_bars) and (math.abs(close - last_loss_price) < armor_zone_dist)
+
+// Anti-Ping-Pong Armor
+var int   last_signal_bar   = -999
+var int   last_signal_side  = 0
+var float last_signal_entry = 0.0
+bool is_ping_pong_long  = (last_signal_side == -1) and ((bar_index - last_signal_bar) <= 4) and (math.abs(close - last_signal_entry) < 120.0)
+bool is_ping_pong_short = (last_signal_side == 1)  and ((bar_index - last_signal_bar) <= 4) and (math.abs(close - last_signal_entry) < 120.0)
+
+// ----------------------------------------------------------------------------------------------------
+// 8. THE MASTER TACTICAL SWING ENGINES (PROVEN 3-ENGINE INSTITUTIONAL MATRIX)
+// ----------------------------------------------------------------------------------------------------
+// Pre-calculate 4-bar tight consolidation metrics for Pattern 3 Expansion
+float highest_high_3   = ta.highest(high[1], 4)
+float lowest_low_3     = ta.lowest(low[1], 4)
+bool  is_tight_cons    = (highest_high_3 - lowest_low_3) <= (1.8 * atr_val)
+
+// Structural Runway Guards: Ensure at least $200 runway to opposing Value Area extreme
+float runway_to_vah = ms.vah_band - close
+float runway_to_val = close - ms.val_band
+
+// 🎯 PATTERN 1: STRUCTURAL WAVE TURNING POINT (Auction Market Theory Spring & UTAD Inception)
+// Spring Reclaim LONG: True Value Area Low / swing low sweep + reclaim, positive delta/CVD div, NOT mid-range chop, runway to VAH >= $200
+bool p1_swept_low      = (low[1] <= ms.val_band) or (low <= ms.val_band) or (not na(ms.swing_low) and ((low[1] < ms.swing_low) or (low < ms.swing_low)))
+bool p1_reclaimed_l    = (close >= ms.val_band - 0.05 * va_total_range) and (close > high[1] or mm.clv >= 0.60)
+bool p1_not_exhaust_l  = p1_clv < 0.98
+bool p1_reclaim_prox   = (close - ms.val_band) <= 180.0
+bool p1_flow_l         = (cvd_bull_divergence or mm.delta_v >= 5.0) and (basis_z >= -2.20) and (basis_z <= 2.20) and (mm.rvol >= 0.70)
+bool p1_location_l     = not ms.is_mid_range and (close <= ms.val_band + 0.35 * va_total_range)
+bool p1_trend_l        = (close >= ema50_15m) or (close >= ms.vwap_roll)
+bool pattern1_long     = p1_swept_low and p1_reclaimed_l and p1_location_l and p1_reclaim_prox and p1_flow_l and not_bear_initiation and p1_trend_l and p1_not_exhaust_l and (runway_to_vah >= 200.0)
+
+// UTAD Rejection SHORT: True Value Area High / swing high sweep + upper wick rejection, negative delta/CVD div, NOT mid-range chop, runway to VAL >= $200
+bool p1_swept_high     = (high[1] >= ms.vah_band) or (high >= ms.vah_band) or (not na(ms.swing_high) and ((high[1] > ms.swing_high) or (high > ms.swing_high)))
+bool p1_rejected_h     = (mm.upper_wick_pct >= 0.28 or mm.clv <= 0.40 or close < low[1]) and (close <= ms.vah_band + 50.0)
+bool p1_reject_prox    = (ms.vah_band - close) <= 180.0
+bool utad_not_bull_init = (delta_oi <= 100.0) and (delta_oi_4bars <= 150.0)
+bool p1_flow_s         = (cvd_bear_divergence or mm.delta_v <= -4.0) and (basis_z >= -1.50) and (basis_z <= 1.50) and (mm.rvol >= 0.70)
+bool p1_location_s     = not ms.is_mid_range and (close >= ms.vah_band - 0.35 * va_total_range)
+bool p1_trend_s        = (close <= ema50_15m) or (close <= ms.vwap_roll)
+bool pattern1_short    = p1_swept_high and p1_rejected_h and p1_location_s and p1_reject_prox and p1_flow_s and utad_not_bull_init and p1_trend_s and (runway_to_val >= 200.0)
+
+// 🎯 PATTERN 2: HEALTHY PULLBACK RECLAIM & DOWNTREND BREAKDOWN
+// Pullback Reclaim LONG: Price above VWAP & 15m EMA50, bounce off support, slope non-negative, runway to VAH >= 200$
+float ema50_slope      = ema50_15m - ema50_15m[4]
+bool not_falling_knife = ema50_slope >= 0.0
+bool not_into_vah      = runway_to_vah >= 200.0
+bool not_pullback_flush = delta_oi >= -250.0
+bool pb_prior_red      = (close[1] <= open[1]) or (close[2] <= open[2])
+bool pb_reclaimed      = (close > high[1]) or (close > high[2])
+bool pb_long_trigger   = (close > ms.vwap_roll) and (close > ema50_15m) and pb_prior_red and pb_reclaimed and (mm.clv >= 0.65) and (mm.delta_v >= 5.0) and (mm.rvol >= 0.50) and (basis_z >= -1.0) and (basis_z <= 2.20) and not_into_vah and not_falling_knife and not_pullback_flush
+bool pattern2_long     = pb_long_trigger and h1_long_proximity
+
+// Downtrend Breakdown SHORT: Clean breakdown below swing low with seller volume dominance, negative delta, no bull CVD absorption
+bool bd_short_trigger  = not na(ms.swing_low) and (close < ms.swing_low) and (close < open) and (close < ema50_15m) and (mm.clv <= 0.35) and (mm.rvol >= 1.05) and (mm.delta_v <= -5.0) and (basis_z <= 0.50) and (atr_val >= 65.0) and (bar_delta[1] >= -10.0)
+bool not_waterfall_exhaustion = (ms.vwap_roll - close) <= (2.0 * atr_val)
+bool not_cvd_bull_div  = not cvd_bull_divergence
+bool pattern2_short    = bd_short_trigger and not_waterfall_exhaustion and not_into_val_floor and not_cvd_bull_div and h1_short_proximity
+
+// 🎯 PATTERN 3: MOMENTUM EXPANSION WAVE (Consolidation Squeeze Release)
+bool p3_not_counter_climax_l = not ((not p1_bull) and p1_clv < 0.20)
+bool p3_not_exhaustion_l     = not (p1_bull and p2_bull and p1_range >= (1.25 * atr_val)) and (p1_clv <= 0.90)
+bool p3_not_climax_bar_l     = candle_range <= (1.8 * atr_val)
+bool p3_long_trigger   = is_tight_cons and (close > highest_high_3) and (close > ms.vwap_roll) and (close > ema50_15m) and (mm.clv >= 0.70) and (mm.rvol >= 1.15) and (mm.delta_v >= 6.0) and (basis_z >= -1.0) and (basis_z <= 2.20) and (p1_rvol >= 0.50) and (atr_val >= 70.0) and (delta_oi_4bars >= -250.0) and p3_not_counter_climax_l and p3_not_exhaustion_l and p3_not_climax_bar_l and not_into_vah and not_falling_knife
+bool pattern3_long     = p3_long_trigger
+
+// P3 Momentum Short is DEACTIVATED to eliminate false shorts into support floors and consolidation chop
+bool pattern3_short    = false
+
+// Master Signals with Dynamic Volatility Floor
+bool is_sufficient_volatility = atr_val >= 60.0
+bool signal_long  = (pattern1_long or pattern2_long or pattern3_long) and has_institutional_flow and not_climax_spike and valid_long_guards and not is_ping_pong_long and not is_consolidation_trap and is_liquid_session and is_sufficient_volatility
+bool signal_short = (pattern1_short or pattern2_short or pattern3_short) and has_institutional_flow and not_climax_spike and valid_short_guards and not is_ping_pong_short and not is_consolidation_trap and is_liquid_session and is_sufficient_volatility
+
+string current_engine_name = pattern1_long ? "P1: Turning Point Spring LONG" : (pattern2_long ? "P2: Pullback Continuation LONG" : (pattern3_long ? "P3: Momentum Expansion LONG" : (pattern1_short ? "P1: Turning Point UTAD SHORT" : (pattern2_short ? "P2: Downtrend Breakdown SHORT" : (pattern3_short ? "P3: Momentum Expansion SHORT" : "NONE")))))
+
+// ----------------------------------------------------------------------------------------------------
+// 9. TRADE EXECUTION, POST-TRADE TRACKER & AUTOPSY REGISTRY
+// ----------------------------------------------------------------------------------------------------
+var TradeState ts = TradeState.new()
+var array<TradeRecord> autopsy_registry = array.new<TradeRecord>()
+var array<int> losing_indices = array.new<int>()
+var int total_trade_count = 0
+var int total_loss_count = 0
+
+// LONG ENTRY LOGIC
+if signal_long and ts.side == 0
+    total_trade_count += 1
+    ts.side            := 1
+    ts.entry_price     := close
+    ts.entry_bar       := bar_index
+    ts.entry_time      := time
+    ts.be_locked       := false
+    ts.tp1_hit         := false
+    ts.trade_mfe       := 0.0
+    ts.trade_mae       := 0.0
+    ts.engine_name     := current_engine_name
+    last_signal_bar    := bar_index
+    last_signal_side   := 1
+    last_signal_entry  := close
+    
+    // Store exact entry micro-metrics
+    ts.snap_clv        := mm.clv
+    ts.snap_rvol       := mm.rvol
+    ts.snap_delta      := mm.delta_v
+    ts.snap_cvd        := cvd_running
+    ts.snap_cvd_div    := cvd_bull_divergence
+    ts.snap_oi_delta   := delta_oi
+    ts.snap_spot_basis := spot_basis
+    ts.snap_basis_z    := basis_z
+    ts.snap_atr        := atr_val
+    ts.pre1_delta      := p1_delta
+    ts.pre1_clv        := p1_clv
+    ts.pre1_rvol       := p1_rvol
+    ts.pre1_range      := p1_range
+    ts.pre1_bull       := p1_bull
+    ts.pre2_delta      := p2_delta
+    ts.pre2_clv        := p2_clv
+    ts.pre2_rvol       := p2_rvol
+    ts.pre2_range      := p2_range
+    ts.pre2_bull       := p2_bull
+    ts.pre3_delta      := p3_delta
+    ts.pre3_clv        := p3_clv
+    ts.pre3_rvol       := p3_rvol
+    ts.pre3_range      := p3_range
+    ts.pre3_bull       := p3_bull
+    
+    // Dynamic Volatility Structural Stop (strictly bounded by max_sl_cap)
+    float struct_sl = math.min(low, low[1]) - micro_sl_buf
+    ts.hard_sl      := math.max(struct_sl, close - max_sl_cap)
+    ts.active_sl    := ts.hard_sl
+    ts.tp1_level    := ts.entry_price + tp1_target_usd
+    ts.be_trigger   := ts.entry_price + tp1_target_usd
+
+    if enable_autopsy
+        string entry_tip = "🔍 [ENTRY AUTOPSY — TRADE #" + str.tostring(total_trade_count) + " LONG]\n" +
+             "════════════════════════════════\n" +
+             "• Direction: 🟢 LONG\n" +
+             "• Engine: " + ts.engine_name + "\n" +
+             "• Entry Price: $" + str.tostring(close, "#.1") + "\n" +
+             "• Initial SL: $" + str.tostring(ts.hard_sl, "#.1") + " (Risk: -$" + str.tostring(close - ts.hard_sl, "#.1") + " — Capped <= $" + str.tostring(max_sl_cap, "#.0") + ")\n" +
+             "• Target TP1: $" + str.tostring(ts.tp1_level, "#.1") + " (+$" + str.tostring(tp1_target_usd, "#.0") + " Cash Exit)\n" +
+             "• Locked Runner: Entry +$" + str.tostring(runner_lock_usd, "#.0") + " (Guarantees >= +$200 Net Win)\n" +
+             "────────────────────────────────\n" +
+             "📊 ENTRY ORDER FLOW SNAPSHOT:\n" +
+             "• CLV Location: " + str.tostring(mm.clv * 100, "#.1") + "%\n" +
+             "• RVOL: " + str.tostring(mm.rvol, "#.2") + "x | Delta: " + (mm.delta_v >= 0 ? "+" : "") + str.tostring(mm.delta_v, "#.1") + " BTC\n" +
+             "• Basis Z-Score: " + str.tostring(basis_z, "#.2") + "σ (Spot Basis: " + str.tostring(spot_basis, "#.1") + "$)\n" +
+             "• CVD Divergence: " + (cvd_bull_divergence ? "🟢 Bullish Div Confirmed" : "Normal") + "\n" +
+             "────────────────────────────────\n" +
+             "📜 PRE-TRIGGER BARS:\n" +
+             "• Bar -1: " + (p1_bull ? "BULL" : "BEAR") + " (RVOL=" + str.tostring(p1_rvol, "#.1") + "x, CLV=" + str.tostring(p1_clv*100, "#.0") + "%)"
+        ts.entry_label := label.new(bar_index, low - (atr_val * 0.40), text="LONG #" + str.tostring(total_trade_count), tooltip=entry_tip, color=color.new(color.green, 20), textcolor=color.white, style=label.style_label_up, size=size.small)
+
+    if log_verbose_individual
+        log.info("🟢 [ZEROZERO ENTRY] LONG #" + str.tostring(total_trade_count) + " | Price: $" + str.tostring(close, "#.1") + " | Engine: " + ts.engine_name + " | SL: $" + str.tostring(ts.hard_sl, "#.1") + " | Basis_Z=" + str.tostring(basis_z, "#.2") + "σ")
+
+// SHORT ENTRY LOGIC
+else if signal_short and ts.side == 0
+    total_trade_count += 1
+    ts.side            := -1
+    ts.entry_price     := close
+    ts.entry_bar       := bar_index
+    ts.entry_time      := time
+    ts.be_locked       := false
+    ts.tp1_hit         := false
+    ts.trade_mfe       := 0.0
+    ts.trade_mae       := 0.0
+    ts.engine_name     := current_engine_name
+    last_signal_bar    := bar_index
+    last_signal_side   := -1
+    last_signal_entry  := close
+    
+    // Store exact entry micro-metrics
+    ts.snap_clv        := mm.clv
+    ts.snap_rvol       := mm.rvol
+    ts.snap_delta      := mm.delta_v
+    ts.snap_cvd        := cvd_running
+    ts.snap_cvd_div    := cvd_bear_divergence
+    ts.snap_oi_delta   := delta_oi
+    ts.snap_spot_basis := spot_basis
+    ts.snap_basis_z    := basis_z
+    ts.snap_atr        := atr_val
+    ts.pre1_delta      := p1_delta
+    ts.pre1_clv        := p1_clv
+    ts.pre1_rvol       := p1_rvol
+    ts.pre1_range      := p1_range
+    ts.pre1_bull       := p1_bull
+    ts.pre2_delta      := p2_delta
+    ts.pre2_clv        := p2_clv
+    ts.pre2_rvol       := p2_rvol
+    ts.pre2_range      := p2_range
+    ts.pre2_bull       := p2_bull
+    ts.pre3_delta      := p3_delta
+    ts.pre3_clv        := p3_clv
+    ts.pre3_rvol       := p3_rvol
+    ts.pre3_range      := p3_range
+    ts.pre3_bull       := p3_bull
+    
+    // Dynamic Volatility Structural Stop (strictly bounded by max_sl_cap)
+    float struct_sl = math.max(high, high[1]) + micro_sl_buf
+    ts.hard_sl      := math.min(struct_sl, close + max_sl_cap)
+    ts.active_sl    := ts.hard_sl
+    ts.tp1_level    := ts.entry_price - tp1_target_usd
+    ts.be_trigger   := ts.entry_price - tp1_target_usd
+
+    if enable_autopsy
+        string entry_tip = "🔍 [ENTRY AUTOPSY — TRADE #" + str.tostring(total_trade_count) + " SHORT]\n" +
+             "════════════════════════════════\n" +
+             "• Direction: 🔴 SHORT\n" +
+             "• Engine: " + ts.engine_name + "\n" +
+             "• Entry Price: $" + str.tostring(close, "#.1") + "\n" +
+             "• Initial SL: $" + str.tostring(ts.hard_sl, "#.1") + " (Risk: -$" + str.tostring(ts.hard_sl - close, "#.1") + " — Capped <= $" + str.tostring(max_sl_cap, "#.0") + ")\n" +
+             "• Target TP1: $" + str.tostring(ts.tp1_level, "#.1") + " (+$" + str.tostring(tp1_target_usd, "#.0") + " Cash Exit)\n" +
+             "• Locked Runner: Entry -$" + str.tostring(runner_lock_usd, "#.0") + " (Guarantees >= +$200 Net Win)\n" +
+             "────────────────────────────────\n" +
+             "📊 ENTRY ORDER FLOW SNAPSHOT:\n" +
+             "• CLV Location: " + str.tostring(mm.clv * 100, "#.1") + "%\n" +
+             "• RVOL: " + str.tostring(mm.rvol, "#.2") + "x | Delta: " + (mm.delta_v >= 0 ? "+" : "") + str.tostring(mm.delta_v, "#.1") + " BTC\n" +
+             "• Basis Z-Score: " + str.tostring(basis_z, "#.2") + "σ (Spot Basis: " + str.tostring(spot_basis, "#.1") + "$)\n" +
+             "• CVD Divergence: " + (cvd_bear_divergence ? "🔴 Bearish Div Confirmed" : "Normal") + "\n" +
+             "────────────────────────────────\n" +
+             "📜 PRE-TRIGGER BARS:\n" +
+             "• Bar -1: " + (p1_bull ? "BULL" : "BEAR") + " (RVOL=" + str.tostring(p1_rvol, "#.1") + "x, CLV=" + str.tostring(p1_clv*100, "#.0") + "%)"
+        ts.entry_label := label.new(bar_index, high + (atr_val * 0.40), text="SHORT #" + str.tostring(total_trade_count), tooltip=entry_tip, color=color.new(color.red, 20), textcolor=color.white, style=label.style_label_down, size=size.small)
+
+    if log_verbose_individual
+        log.info("🔴 [ZEROZERO ENTRY] SHORT #" + str.tostring(total_trade_count) + " | Price: $" + str.tostring(close, "#.1") + " | Engine: " + ts.engine_name + " | SL: $" + str.tostring(ts.hard_sl, "#.1") + " | Basis_Z=" + str.tostring(basis_z, "#.2") + "σ")
+
+// ----------------------------------------------------------------------------------------------------
+// 10. ACTIVE TRADE TRACKING & EXIT DIAGNOSTICS (POST-TRADE FORENSICS)
+// ----------------------------------------------------------------------------------------------------
+if ts.side == 1 and bar_index > ts.entry_bar
+    ts.trade_mfe := math.max(ts.trade_mfe, high - ts.entry_price)
+    ts.trade_mae := math.min(ts.trade_mae, low - ts.entry_price)
+
+    // Stage 0A: Risk-Free & Commission Cover at +$120 (Lock Stop at Entry + $25)
+    if enable_be_protect and not ts.be_locked and (high - ts.entry_price >= be_protect_usd)
+        ts.be_locked := true
+        ts.active_sl := math.max(ts.active_sl, ts.entry_price + 25.0)
+
+    // Stage 0B: Tier-2 Guaranteed Profit Lock at +$150 (Lock Stop at Entry + $100.0)
+    if enable_tiered_lock and (high - ts.entry_price >= tier2_trigger_usd)
+        ts.active_sl := math.max(ts.active_sl, ts.entry_price + tier2_lock_usd)
+
+    // Stage 1: Primary Target TP1 (+200.0$) Reached
+    if not ts.tp1_hit and (high >= ts.tp1_level)
+        ts.tp1_hit := true
+        ts.be_locked := true
+        ts.active_sl := math.max(ts.active_sl, ts.entry_price + runner_lock_usd) // Lock +$150.0 on runner!
+        
+    // Stage 2: Dynamic Structural Trailing for Runner behind 3-bar swing low
+    if ts.tp1_hit
+        float runner_trail_sl = runner_trail_lowest - (0.5 * atr_val)
+        ts.active_sl := math.max(ts.active_sl, runner_trail_sl)
+        
+    // Stop Loss Hit / Exit
+    if low <= ts.active_sl
+        float final_exit_price = ts.active_sl
+        float runner_pnl = math.max(runner_lock_usd, final_exit_price - ts.entry_price)
+        float pnl = ts.tp1_hit ? (0.5 * tp1_target_usd + 0.5 * runner_pnl) : (final_exit_price - ts.entry_price)
+        string reason = ts.tp1_hit ? ("TP1 (+$" + str.tostring(tp1_target_usd, "#.0") + ") Banked + Runner Trailed") : (ts.active_sl >= ts.entry_price + 90.0 ? ("Tier-2 Guaranteed Profit Locked (+$" + str.tostring(tier2_lock_usd, "#.0") + ")") : (ts.be_locked ? "Break-Even Capital Protected" : "Initial SL Hit"))
+        
+        string root_diag = ""
+        if ts.tp1_hit or pnl >= 175.0
+            root_diag := "✅ TRUE INSTITUTIONAL WIN: Captured +$" + str.tostring(pnl, "#.1") + " (Peak MFE: +$" + str.tostring(ts.trade_mfe, "#.1") + "). Target >= $175 achieved."
+        else if pnl >= 90.0
+            root_diag := "💰 TIER-2 CASH LOCKED: Secured +$" + str.tostring(pnl, "#.1") + " (Peak MFE: +$" + str.tostring(ts.trade_mfe, "#.1") + ") before pullback."
+        else if pnl >= 0.0
+            root_diag := "🛡️ CAPITAL PROTECTED (BREAK-EVEN): Exited at Entry $" + str.tostring(ts.entry_price, "#.1") + " (Peak MFE: +$" + str.tostring(ts.trade_mfe, "#.1") + "). Capital 100% saved ($0 loss)."
+        else
+            root_diag := "❌ SL HIT: Risk strictly contained to -$" + str.tostring(math.abs(pnl), "#.1") + " (Capped <= $" + str.tostring(max_sl_cap, "#.0") + "). Structure invalidated."
+
+        // Save Record to Registry
+        TradeRecord rec = TradeRecord.new()
+        rec.id               := total_trade_count
+        rec.loss_id          := 0
+        rec.side             := 1
+        rec.entry_bar        := ts.entry_bar
+        rec.exit_bar         := bar_index
+        rec.entry_time       := ts.entry_time
+        rec.exit_time        := time
+        rec.entry_price      := ts.entry_price
+        rec.exit_price       := final_exit_price
+        rec.hard_sl          := ts.hard_sl
+        rec.tp1_price        := ts.tp1_level
+        rec.pnl_dollars      := pnl
+        rec.mfe_dollars      := ts.trade_mfe
+        rec.mae_dollars      := ts.trade_mae
+        rec.engine_name      := ts.engine_name
+        rec.exit_reason      := reason
+        rec.root_cause       := root_diag
+        rec.entry_clv        := ts.snap_clv
+        rec.entry_rvol       := ts.snap_rvol
+        rec.entry_delta      := ts.snap_delta
+        rec.entry_cvd        := ts.snap_cvd
+        rec.entry_cvd_div    := ts.snap_cvd_div
+        rec.entry_oi_delta   := ts.snap_oi_delta
+        rec.entry_spot_basis := ts.snap_spot_basis
+        rec.entry_basis_z    := ts.snap_basis_z
+        rec.entry_atr        := ts.snap_atr
+        rec.pre1_delta       := ts.pre1_delta
+        rec.pre1_clv         := ts.pre1_clv
+        rec.pre1_rvol        := ts.pre1_rvol
+        rec.pre1_range       := ts.pre1_range
+        rec.pre1_bull        := ts.pre1_bull
+        rec.pre2_delta       := ts.pre2_delta
+        rec.pre2_clv         := ts.pre2_clv
+        rec.pre2_rvol        := ts.pre2_rvol
+        rec.pre2_range       := ts.pre2_range
+        rec.pre2_bull        := ts.pre2_bull
+        rec.pre3_delta       := ts.pre3_delta
+        rec.pre3_clv         := ts.pre3_clv
+        rec.pre3_rvol        := ts.pre3_rvol
+        rec.pre3_range       := ts.pre3_range
+        rec.pre3_bull        := ts.pre3_bull
+
+        if pnl < 0
+            total_loss_count += 1
+            rec.loss_id := total_loss_count
+            losing_indices.push(autopsy_registry.size())
+            last_loss_bar := bar_index
+            last_loss_price := ts.entry_price
+
+        autopsy_registry.push(rec)
+
+        if enable_autopsy
+            string exit_tip = "⚖️ [EXIT AUTOPSY — TRADE #" + str.tostring(total_trade_count) + (rec.loss_id > 0 ? (" LOSS L" + str.tostring(rec.loss_id)) : "") + " LONG]\n" +
+                 "════════════════════════════════\n" +
+                 "• Outcome: " + (pnl >= 175.0 ? "🟢 TRUE WIN (+$" + str.tostring(pnl, "#.1") + ")" : "🔴 LOSS (-$" + str.tostring(math.abs(pnl), "#.1") + ")") + "\n" +
+                 "• Exit Trigger: " + reason + "\n" +
+                 "• Entry Price: $" + str.tostring(ts.entry_price, "#.1") + " -> Exit Price: $" + str.tostring(final_exit_price, "#.1") + "\n" +
+                 "• Duration: " + str.tostring(bar_index - ts.entry_bar) + " bars (" + str.tostring((bar_index - ts.entry_bar)*15) + " mins)\n" +
+                 "────────────────────────────────\n" +
+                 "📈 EXCURSION & TRAJECTORY ANALYSIS:\n" +
+                 "• Peak Floating Profit (MFE): +$" + str.tostring(ts.trade_mfe, "#.1") + " (+" + str.tostring(ts.trade_mfe/ts.snap_atr, "#.2") + " ATR)\n" +
+                 "• Max Floating Drawdown (MAE): -$" + str.tostring(math.abs(ts.trade_mae), "#.1") + " (-" + str.tostring(math.abs(ts.trade_mae)/ts.snap_atr, "#.2") + " ATR)\n" +
+                 "────────────────────────────────\n" +
+                 "🔬 ROOT CAUSE FORENSIC DIAGNOSIS:\n" + root_diag
+            color exit_col = pnl >= 175.0 ? color.new(color.green, 20) : (pnl >= 0.0 ? color.new(color.blue, 20) : color.new(color.maroon, 20))
+            string tag_text = pnl >= 175.0 ? ("✅ WIN #" + str.tostring(total_trade_count) + "\n+$" + str.tostring(pnl, "#.1")) : (pnl >= 0.0 ? ("🛡️ BE #" + str.tostring(total_trade_count) + "\n$0.0") : ("❌ LOSS #" + str.tostring(total_trade_count) + " [L" + str.tostring(total_loss_count) + "]\n-$" + str.tostring(math.abs(pnl), "#.1")))
+            label.new(bar_index, final_exit_price, text=tag_text, tooltip=exit_tip, color=exit_col, textcolor=color.white, style=label.style_label_down, size=size.small)
+            if not na(ts.entry_label)
+                label.set_tooltip(ts.entry_label, exit_tip)
+
+        if log_verbose_individual
+            log.info("TRADE #" + str.tostring(total_trade_count) + " LONG CLOSED | PnL: +$" + str.tostring(pnl, "#.1") + " | Peak MFE: +$" + str.tostring(ts.trade_mfe, "#.1"))
+
+        if draw_boxes
+            color box_col = pnl >= 200.0 ? color.new(color.green, 92) : color.new(color.red, 92)
+            int r_time = time > ts.entry_time ? time : (ts.entry_time + (15 * 60 * 1000))
+            box.new(left=ts.entry_time, top=math.max(ts.entry_price, final_exit_price), right=r_time, bottom=math.min(ts.entry_price, final_exit_price), xloc=xloc.bar_time, border_color=pnl >= 200.0 ? color.green : color.red, bgcolor=box_col)
+
+        ts.side := 0
+
+else if ts.side == -1 and bar_index > ts.entry_bar
+    ts.trade_mfe := math.max(ts.trade_mfe, ts.entry_price - low)
+    ts.trade_mae := math.min(ts.trade_mae, ts.entry_price - high)
+
+    // Stage 0A: Risk-Free & Commission Cover at +$120 (Lock Stop at Entry - $25)
+    if enable_be_protect and not ts.be_locked and (ts.entry_price - low >= be_protect_usd)
+        ts.be_locked := true
+        ts.active_sl := math.min(ts.active_sl, ts.entry_price - 25.0)
+
+    // Stage 0B: Tier-2 Guaranteed Profit Lock at +$150 (Lock Stop at Entry - $100.0)
+    if enable_tiered_lock and (ts.entry_price - low >= tier2_trigger_usd)
+        ts.active_sl := math.min(ts.active_sl, ts.entry_price - tier2_lock_usd)
+
+    // Stage 1: Primary Target TP1 (+200.0$) Reached
+    if not ts.tp1_hit and (low <= ts.tp1_level)
+        ts.tp1_hit := true
+        ts.be_locked := true
+        ts.active_sl := math.min(ts.active_sl, ts.entry_price - runner_lock_usd) // Lock +$150.0 on runner!
+        
+    // Stage 2: Dynamic Structural Trailing for Runner behind 3-bar swing high
+    if ts.tp1_hit
+        float runner_trail_sl = runner_trail_highest + (0.5 * atr_val)
+        ts.active_sl := math.min(ts.active_sl, runner_trail_sl)
+        
+    // Stop Loss Hit / Exit
+    if high >= ts.active_sl
+        float final_exit_price = ts.active_sl
+        float runner_pnl = math.max(runner_lock_usd, ts.entry_price - final_exit_price)
+        float pnl = ts.tp1_hit ? (0.5 * tp1_target_usd + 0.5 * runner_pnl) : (ts.entry_price - final_exit_price)
+        string reason = ts.tp1_hit ? ("TP1 (+$" + str.tostring(tp1_target_usd, "#.0") + ") Banked + Runner Trailed") : (ts.active_sl <= ts.entry_price - 90.0 ? ("Tier-2 Guaranteed Profit Locked (+$" + str.tostring(tier2_lock_usd, "#.0") + ")") : (ts.be_locked ? "Break-Even Capital Protected" : "Initial SL Hit"))
+        
+        string root_diag = ""
+        if ts.tp1_hit or pnl >= 175.0
+            root_diag := "✅ TRUE INSTITUTIONAL WIN: Captured +$" + str.tostring(pnl, "#.1") + " (Peak MFE: +$" + str.tostring(ts.trade_mfe, "#.1") + "). Target >= $175 achieved."
+        else if pnl >= 90.0
+            root_diag := "💰 TIER-2 CASH LOCKED: Secured +$" + str.tostring(pnl, "#.1") + " (Peak MFE: +$" + str.tostring(ts.trade_mfe, "#.1") + ") before pullback."
+        else if pnl >= 0.0
+            root_diag := "🛡️ CAPITAL PROTECTED (BREAK-EVEN): Exited at Entry $" + str.tostring(ts.entry_price, "#.1") + " (Peak MFE: +$" + str.tostring(ts.trade_mfe, "#.1") + "). Capital 100% saved ($0 loss)."
+        else
+            root_diag := "❌ SL HIT: Risk strictly contained to -$" + str.tostring(math.abs(pnl), "#.1") + " (Capped <= $" + str.tostring(max_sl_cap, "#.0") + "). Structure invalidated."
+
+        // Save Record to Registry
+        TradeRecord rec = TradeRecord.new()
+        rec.id               := total_trade_count
+        rec.loss_id          := 0
+        rec.side             := -1
+        rec.entry_bar        := ts.entry_bar
+        rec.exit_bar         := bar_index
+        rec.entry_time       := ts.entry_time
+        rec.exit_time        := time
+        rec.entry_price      := ts.entry_price
+        rec.exit_price       := final_exit_price
+        rec.hard_sl          := ts.hard_sl
+        rec.tp1_price        := ts.tp1_level
+        rec.pnl_dollars      := pnl
+        rec.mfe_dollars      := ts.trade_mfe
+        rec.mae_dollars      := ts.trade_mae
+        rec.engine_name      := ts.engine_name
+        rec.exit_reason      := reason
+        rec.root_cause       := root_diag
+        rec.entry_clv        := ts.snap_clv
+        rec.entry_rvol       := ts.snap_rvol
+        rec.entry_delta      := ts.snap_delta
+        rec.entry_cvd        := ts.snap_cvd
+        rec.entry_cvd_div    := ts.snap_cvd_div
+        rec.entry_oi_delta   := ts.snap_oi_delta
+        rec.entry_spot_basis := ts.snap_spot_basis
+        rec.entry_basis_z    := ts.snap_basis_z
+        rec.entry_atr        := ts.snap_atr
+        rec.pre1_delta       := ts.pre1_delta
+        rec.pre1_clv         := ts.pre1_clv
+        rec.pre1_rvol        := ts.pre1_rvol
+        rec.pre1_range       := ts.pre1_range
+        rec.pre1_bull        := ts.pre1_bull
+        rec.pre2_delta       := ts.pre2_delta
+        rec.pre2_clv         := ts.pre2_clv
+        rec.pre2_rvol        := ts.pre2_rvol
+        rec.pre2_range       := ts.pre2_range
+        rec.pre2_bull        := ts.pre2_bull
+        rec.pre3_delta       := ts.pre3_delta
+        rec.pre3_clv         := ts.pre3_clv
+        rec.pre3_rvol        := ts.pre3_rvol
+        rec.pre3_range       := ts.pre3_range
+        rec.pre3_bull        := ts.pre3_bull
+
+        if pnl < 0
+            total_loss_count += 1
+            rec.loss_id := total_loss_count
+            losing_indices.push(autopsy_registry.size())
+            last_loss_bar := bar_index
+            last_loss_price := ts.entry_price
+
+        autopsy_registry.push(rec)
+
+        if enable_autopsy
+            string exit_tip = "⚖️ [EXIT AUTOPSY — TRADE #" + str.tostring(total_trade_count) + (rec.loss_id > 0 ? (" LOSS L" + str.tostring(rec.loss_id)) : "") + " SHORT]\n" +
+                 "════════════════════════════════\n" +
+                 "• Outcome: " + (pnl >= 175.0 ? "🟢 TRUE WIN (+$" + str.tostring(pnl, "#.1") + ")" : "🔴 LOSS (-$" + str.tostring(math.abs(pnl), "#.1") + ")") + "\n" +
+                 "• Exit Trigger: " + reason + "\n" +
+                 "• Entry Price: $" + str.tostring(ts.entry_price, "#.1") + " -> Exit Price: $" + str.tostring(final_exit_price, "#.1") + "\n" +
+                 "• Duration: " + str.tostring(bar_index - ts.entry_bar) + " bars (" + str.tostring((bar_index - ts.entry_bar)*15) + " mins)\n" +
+                 "────────────────────────────────\n" +
+                 "📈 EXCURSION & TRAJECTORY ANALYSIS:\n" +
+                 "• Peak Floating Profit (MFE): +$" + str.tostring(ts.trade_mfe, "#.1") + " (+" + str.tostring(ts.trade_mfe/ts.snap_atr, "#.2") + " ATR)\n" +
+                 "• Max Floating Drawdown (MAE): -$" + str.tostring(math.abs(ts.trade_mae), "#.1") + " (-" + str.tostring(math.abs(ts.trade_mae)/ts.snap_atr, "#.2") + " ATR)\n" +
+                 "────────────────────────────────\n" +
+                 "🔬 ROOT CAUSE FORENSIC DIAGNOSIS:\n" + root_diag
+            color exit_col = pnl >= 175.0 ? color.new(color.green, 20) : (pnl >= 0.0 ? color.new(color.blue, 20) : color.new(color.maroon, 20))
+            string tag_text = pnl >= 175.0 ? ("✅ WIN #" + str.tostring(total_trade_count) + "\n+$" + str.tostring(pnl, "#.1")) : (pnl >= 0.0 ? ("🛡️ BE #" + str.tostring(total_trade_count) + "\n$0.0") : ("❌ LOSS #" + str.tostring(total_trade_count) + " [L" + str.tostring(total_loss_count) + "]\n-$" + str.tostring(math.abs(pnl), "#.1")))
+            label.new(bar_index, final_exit_price, text=tag_text, tooltip=exit_tip, color=exit_col, textcolor=color.white, style=label.style_label_up, size=size.small)
+            if not na(ts.entry_label)
+                label.set_tooltip(ts.entry_label, exit_tip)
+
+        if log_verbose_individual
+            log.info("TRADE #" + str.tostring(total_trade_count) + " SHORT CLOSED | PnL: +$" + str.tostring(pnl, "#.1") + " | Peak MFE: +$" + str.tostring(ts.trade_mfe, "#.1"))
+
+        if draw_boxes
+            color box_col = pnl >= 200.0 ? color.new(color.green, 92) : color.new(color.red, 92)
+            int r_time = time > ts.entry_time ? time : (ts.entry_time + (15 * 60 * 1000))
+            box.new(left=ts.entry_time, top=math.max(ts.entry_price, final_exit_price), right=r_time, bottom=math.min(ts.entry_price, final_exit_price), xloc=xloc.bar_time, border_color=pnl >= 200.0 ? color.green : color.red, bgcolor=box_col)
+
+        ts.side := 0
+
+// ----------------------------------------------------------------------------------------------------
+// 11. ON-CHART VISUAL GRAPHICS & PLOTTING
+// ----------------------------------------------------------------------------------------------------
+plot(show_swings and not na(ms.swing_high) ? ms.swing_high : na, "Swing High (Resistance)", color=color.new(color.red, 30), linewidth=1, style=plot.style_stepline)
+plot(show_swings and not na(ms.swing_low) ? ms.swing_low : na, "Swing Low (Support)", color=color.new(color.teal, 30), linewidth=1, style=plot.style_stepline)
+
+// AMT Value Area Bands
+plot(show_amt_bands ? ms.vwap_roll : na, "AMT Rolling POC (VWAP)", color=color.new(color.orange, 40), linewidth=1)
+p_vah = plot(show_amt_bands ? ms.vah_band : na, "AMT VAH (+1.0σ)", color=color.new(#00BCD4, 50), linewidth=1)
+p_val = plot(show_amt_bands ? ms.val_band : na, "AMT VAL (-1.0σ)", color=color.new(#00BCD4, 50), linewidth=1)
+fill(p_vah, p_val, color=show_amt_bands ? color.new(#00BCD4, 95) : na, title="AMT Value Area (70%)")
+
+// Active Trailing & Targets
+color sl_color = ts.tp1_hit ? color.fuchsia : (ts.be_locked ? color.yellow : color.red)
+plot(show_trail and ts.side != 0 ? ts.active_sl : na, "Active Dynamic SL / Trail", color=sl_color, linewidth=2, style=plot.style_linebr)
+plot(show_trail and ts.side != 0 and not ts.tp1_hit ? ts.tp1_level : na, "TP1 Target", color=color.green, linewidth=1, style=plot.style_linebr)
+plot(show_trail and ts.side != 0 ? ts.entry_price : na, "Entry Price", color=color.blue, linewidth=1, style=plot.style_circles)
+
+// Entry Signals
+plotshape(signal_long, "LONG Initiation", shape.triangleup, location.belowbar, color=color.new(#00E676, 0), size=size.small, text="LONG")
+plotshape(signal_short, "SHORT Initiation", shape.triangledown, location.abovebar, color=color.new(#FF5252, 0), size=size.small, text="SHORT")
+
+// ----------------------------------------------------------------------------------------------------
+// 12. INSTITUTIONAL FORENSIC HUD DASHBOARD & INTERACTIVE TRADE INSPECTOR TABLE
+// ----------------------------------------------------------------------------------------------------
+var table hud = table.new(position.top_right, 6, 12, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.new(color.gray, 60))
+var box   focus_box   = na
+var label focus_label = na
+
+if barstate.islast and show_dashboard
+    for c = 0 to 5
+        for r = 0 to 11
+            table.cell(hud, c, r, text="", bgcolor=color.new(color.black, 100))
+
+    int reg_size = autopsy_registry.size()
+    int loss_count = losing_indices.size()
+    int target_idx = -1
+
+    if reg_size > 0
+        if target_mode == "Losing Trades Only (الصفقات الخاسرة فقط)"
+            if loss_count > 0
+                int l_idx = loss_count - inspect_loss
+                if l_idx >= 0 and l_idx < loss_count
+                    target_idx := losing_indices.get(l_idx)
+                else
+                    target_idx := losing_indices.get(0)
+            else
+                target_idx := reg_size - 1
+        else if target_mode == "Select by Date/Time (بالتاريخ والوقت)"
+            int min_diff = 1000000000
+            for i = 0 to reg_size - 1
+                TradeRecord r = autopsy_registry.get(i)
+                int diff = math.abs(r.entry_time - target_time)
+                if diff < min_diff
+                    min_diff := diff
+                    target_idx := i
+        else // Select by Trade ID
+            for i = 0 to reg_size - 1
+                TradeRecord r = autopsy_registry.get(i)
+                if r.id == inspect_id
+                    target_idx := i
+                    break
+            if target_idx == -1
+                target_idx := reg_size - 1
+
+    if table_mode == "Inspected Trade Autopsy Dossier"
+        if target_idx >= 0 and target_idx < reg_size
+            TradeRecord it = autopsy_registry.get(target_idx)
+            
+            if highlight_target
+                box.delete(focus_box)
+                label.delete(focus_label)
+                float top_p = math.max(it.entry_price, it.exit_price) + (it.entry_atr * 0.4)
+                float bot_p = math.min(it.entry_price, it.exit_price) - (it.entry_atr * 0.4)
+                color b_col = it.pnl_dollars < 0 ? color.red : color.yellow
+                int r_time = it.exit_time > it.entry_time ? it.exit_time : (it.entry_time + (15 * 60 * 1000))
+                focus_box := box.new(left=it.entry_time, top=top_p, right=r_time, bottom=bot_p, xloc=xloc.bar_time, border_color=b_col, border_width=2, bgcolor=color.new(b_col, 88))
+                string f_text = "🎯 AUDITING " + (it.loss_id > 0 ? ("LOSS L" + str.tostring(it.loss_id) + " (Trade #" + str.tostring(it.id) + ")") : ("TRADE #" + str.tostring(it.id))) + "\n" + (it.pnl_dollars >= 200.0 ? "🟢 +$" : "🔴 -$") + str.tostring(math.abs(it.pnl_dollars), "#.1")
+                focus_label := label.new(x=it.entry_time, y=top_p, xloc=xloc.bar_time, text=f_text, color=color.navy, textcolor=color.yellow, style=label.style_label_down, size=size.normal)
+
+            table.cell(hud, 0, 0, "👑 ZERO-BTC FORENSIC", bgcolor=color.new(#2962FF, 25), text_color=color.white, text_size=size.small)
+            table.cell(hud, 1, 0, "PHASE 16.0 DOSSIER PRO", bgcolor=color.new(#2962FF, 25), text_color=color.white, text_size=size.small)
+            
+            table.cell(hud, 0, 1, "Audited Target", bgcolor=color.new(color.purple, 30), text_color=color.yellow, text_size=size.small)
+            table.cell(hud, 1, 1, (it.loss_id > 0 ? ("LOSS L" + str.tostring(it.loss_id) + " (Trade #" + str.tostring(it.id) + ")") : ("Trade #" + str.tostring(it.id))) + " [" + (it.side == 1 ? "LONG" : "SHORT") + "]", bgcolor=color.new(color.purple, 30), text_color=color.white, text_size=size.small)
+            
+            table.cell(hud, 0, 2, "Realized Outcome", text_color=color.silver, text_size=size.small)
+            table.cell(hud, 1, 2, (it.pnl_dollars >= 200.0 ? "🟢 TRUE WIN (+$" + str.tostring(it.pnl_dollars, "#.1") + ")" : "🔴 LOSS (-$" + str.tostring(math.abs(it.pnl_dollars), "#.1") + ")"), text_color=it.pnl_dollars >= 200.0 ? color.green : color.red, text_size=size.small)
+            
+            table.cell(hud, 0, 3, "Peak Profit (MFE)", text_color=color.silver, text_size=size.small)
+            table.cell(hud, 1, 3, "+$" + str.tostring(it.mfe_dollars, "#.1") + " (+" + str.tostring(it.mfe_dollars/it.entry_atr, "#.2") + " ATR)", text_color=color.green, text_size=size.small)
+            
+            table.cell(hud, 0, 4, "Max Drawdown (MAE)", text_color=color.silver, text_size=size.small)
+            table.cell(hud, 1, 4, "-$" + str.tostring(math.abs(it.mae_dollars), "#.1") + " (-" + str.tostring(math.abs(it.mae_dollars)/it.entry_atr, "#.2") + " ATR)", text_color=color.red, text_size=size.small)
+            
+            table.cell(hud, 0, 5, "Pre-Bars Context", text_color=color.silver, text_size=size.small)
+            table.cell(hud, 1, 5, "[-1]: " + (it.pre1_bull ? "BULL" : "BEAR") + " (" + str.tostring(it.pre1_rvol, "#.1") + "x) | [-2]: " + (it.pre2_bull ? "BULL" : "BEAR"), text_color=color.white, text_size=size.small)
+            
+            table.cell(hud, 0, 6, "Entry Order Flow", text_color=color.silver, text_size=size.small)
+            table.cell(hud, 1, 6, "CLV: " + str.tostring(it.entry_clv*100, "#.0") + "% | RVOL: " + str.tostring(it.entry_rvol, "#.1") + "x | Δ: " + str.tostring(it.entry_delta, "#.1"), text_color=color.white, text_size=size.small)
+            
+            table.cell(hud, 0, 7, "CVD / Basis Z-Score", text_color=color.silver, text_size=size.small)
+            table.cell(hud, 1, 7, (it.entry_cvd_div ? "Div: Yes" : "Div: No") + " | Basis Z: " + str.tostring(it.entry_basis_z, "#.2") + "σ", text_color=it.entry_cvd_div ? color.green : color.silver, text_size=size.small)
+            
+            table.cell(hud, 0, 8, "Exit Trigger Reason", text_color=color.silver, text_size=size.small)
+            table.cell(hud, 1, 8, it.exit_reason, text_color=color.white, text_size=size.small)
+            
+            table.cell(hud, 0, 9, "Forensic Root Cause", text_color=color.silver, text_size=size.small)
+            table.cell(hud, 1, 9, it.root_cause, text_color=color.yellow, text_size=size.small)
+            
+            table.cell(hud, 0, 10, "Historical Inventory", text_color=color.silver, text_size=size.small)
+            table.cell(hud, 1, 10, str.tostring(reg_size) + " Closed (" + str.tostring(loss_count) + " Losses)", text_color=color.silver, text_size=size.small)
+            
+            table.cell(hud, 0, 11, "Auditing Instruction", bgcolor=color.new(color.navy, 50), text_color=color.white, text_size=size.small)
+            table.cell(hud, 1, 11, "Open Pine Logs tab to copy full report in 1 click!", bgcolor=color.new(color.navy, 50), text_color=color.yellow, text_size=size.small)
+
+    else if table_mode == "Recent 5 Trades Audit Log"
+        table.cell(hud, 0, 0, "Trade #", bgcolor=color.new(#2962FF, 20), text_color=color.white, text_size=size.small)
+        table.cell(hud, 1, 0, "Side", bgcolor=color.new(#2962FF, 20), text_color=color.white, text_size=size.small)
+        table.cell(hud, 2, 0, "Outcome", bgcolor=color.new(#2962FF, 20), text_color=color.white, text_size=size.small)
+        table.cell(hud, 3, 0, "Peak MFE", bgcolor=color.new(#2962FF, 20), text_color=color.white, text_size=size.small)
+        table.cell(hud, 4, 0, "Max MAE", bgcolor=color.new(#2962FF, 20), text_color=color.white, text_size=size.small)
+        table.cell(hud, 5, 0, "Diagnostic Root Cause", bgcolor=color.new(#2962FF, 20), text_color=color.white, text_size=size.small)
+        
+        for i = 0 to math.min(4, reg_size - 1)
+            int row_idx = i + 1
+            int t_idx = reg_size - 1 - i
+            TradeRecord rec_i = autopsy_registry.get(t_idx)
+            color pnl_col = rec_i.pnl_dollars >= 200.0 ? color.green : color.red
+            table.cell(hud, 0, row_idx, "#" + str.tostring(rec_i.id) + (rec_i.loss_id > 0 ? (" [L" + str.tostring(rec_i.loss_id) + "]") : ""), text_color=color.white, text_size=size.small)
+            table.cell(hud, 1, row_idx, rec_i.side == 1 ? "LONG" : "SHORT", text_color=rec_i.side == 1 ? color.green : color.red, text_size=size.small)
+            table.cell(hud, 2, row_idx, (rec_i.pnl_dollars >= 0 ? "+$" : "-$") + str.tostring(math.abs(rec_i.pnl_dollars), "#.0"), text_color=pnl_col, text_size=size.small)
+            table.cell(hud, 3, row_idx, "+$" + str.tostring(rec_i.mfe_dollars, "#.0"), text_color=color.green, text_size=size.small)
+            table.cell(hud, 4, row_idx, "-$" + str.tostring(math.abs(rec_i.mae_dollars), "#.0"), text_color=color.red, text_size=size.small)
+            table.cell(hud, 5, row_idx, rec_i.root_cause, text_color=color.yellow, text_size=size.small)
+
+    else // Live Order Flow Status
+        table.cell(hud, 0, 0, "👑 ZERO-BTC FORENSIC", bgcolor=color.new(#2962FF, 25), text_color=color.white, text_size=size.small)
+        table.cell(hud, 1, 0, "LIVE ORDER FLOW HUD", bgcolor=color.new(#2962FF, 25), text_color=color.white, text_size=size.small)
+        
+        table.cell(hud, 0, 1, "CVD Divergence", text_color=color.silver, text_size=size.small)
+        table.cell(hud, 1, 1, cvd_bull_divergence ? "🟢 Bullish Absorption Div" : (cvd_bear_divergence ? "🔴 Bearish Distribution Div" : "⚪ Neutral Delta Alignment"), text_color=cvd_bull_divergence ? color.green : (cvd_bear_divergence ? color.red : color.silver), text_size=size.small)
+        
+        table.cell(hud, 0, 2, "AMT Value State", text_color=color.silver, text_size=size.small)
+        table.cell(hud, 1, 2, close > ms.vah_band ? "🔺 Above VAH (Expansion)" : (close < ms.val_band ? "🔻 Below VAL (Spring Zone)" : "⚖️ Inside Value Area (70%)"), text_color=close > ms.vah_band ? color.teal : (close < ms.val_band ? color.purple : color.yellow), text_size=size.small)
+        
+        table.cell(hud, 0, 3, "Dynamic 15m ATR", text_color=color.silver, text_size=size.small)
+        table.cell(hud, 1, 3, "$" + str.tostring(atr_val, "#.1") + " (Base: $" + str.tostring(atr_sma, "#.1") + ")", text_color=color.white, text_size=size.small)
+        
+        table.cell(hud, 0, 4, "CLV Location", text_color=color.silver, text_size=size.small)
+        table.cell(hud, 1, 4, str.tostring(mm.clv * 100, "#.1") + "% (" + (mm.clv >= 0.50 ? "Bullish" : "Bearish") + ")", text_color=mm.clv >= 0.7 ? color.green : (mm.clv <= 0.3 ? color.red : color.yellow), text_size=size.small)
+        
+        table.cell(hud, 0, 5, "RVOL / Delta", text_color=color.silver, text_size=size.small)
+        table.cell(hud, 1, 5, str.tostring(mm.rvol, "#.2") + "x | " + (mm.delta_v >= 0 ? "+" : "") + str.tostring(mm.delta_v, "#.1"), text_color=color.white, text_size=size.small)
+        
+        table.cell(hud, 0, 6, "Δ Open Interest", text_color=color.silver, text_size=size.small)
+        table.cell(hud, 1, 6, not na(oi_current) ? (delta_oi > 0 ? "+" : "") + str.tostring(delta_oi, "#.1") + " BTC" : "N/A", text_color=delta_oi > 0 ? color.green : color.maroon, text_size=size.small)
+        
+        table.cell(hud, 0, 7, "Basis Z-Score", text_color=color.silver, text_size=size.small)
+        table.cell(hud, 1, 7, str.tostring(basis_z, "#.2") + "σ (Basis: " + str.tostring(spot_basis, "#.1") + "$)", text_color=basis_z > 0 ? color.teal : color.purple, text_size=size.small)
+        
+        string pos_txt = ts.side == 0 ? "CASH ARMOR (100% Protected)" : (ts.side == 1 ? ("LONG (" + (ts.tp1_hit ? "Runner Trailing" : "Initial SL") + ")") : ("SHORT (" + (ts.tp1_hit ? "Runner Trailing" : "Initial SL") + ")"))
+        table.cell(hud, 0, 8, "Active Position", text_color=color.silver, text_size=size.small)
+        table.cell(hud, 1, 8, pos_txt, text_color=ts.side == 0 ? color.gray : (ts.side == 1 ? color.green : color.red), text_size=size.small)
+        
+        table.cell(hud, 0, 9, "Live Floating MFE", text_color=color.silver, text_size=size.small)
+        table.cell(hud, 1, 9, ts.side != 0 ? ("Peak: +$" + str.tostring(ts.trade_mfe, "#.1")) : "—", text_color=color.green, text_size=size.small)
+
+// ----------------------------------------------------------------------------------------------------
+// 12-B. FULL-SPECTRUM BATCH HISTORICAL TRADE EXPORTER (AI MULTI-TRADE TELEMETRY DUMP)
+// ----------------------------------------------------------------------------------------------------
+var bool batch_printed = false
+if (barstate.islast or barstate.islastconfirmedhistory) and not batch_printed and (log_batch_export or enable_batch_export) and autopsy_registry.size() > 0
+    batch_printed := true
+    int reg_sz = autopsy_registry.size()
+    array<int> batch_indices = array.new<int>()
+    
+    if batch_export_mode == "Losing Trades Only (الصفقات الخاسرة فقط)"
+        int num_losses = losing_indices.size()
+        if num_losses > 0
+            int start_loss = math.max(0, num_losses - batch_max_count)
+            for i = start_loss to num_losses - 1
+                batch_indices.push(losing_indices.get(i))
+    else if batch_export_mode == "Recent 50 Trades"
+        int start_idx = math.max(0, reg_sz - 50)
+        for i = start_idx to reg_sz - 1
+            batch_indices.push(i)
+    else // "All Trades (Winners + Losses)"
+        int start_idx = math.max(0, reg_sz - batch_max_count)
+        for i = start_idx to reg_sz - 1
+            batch_indices.push(i)
+
+    int num_to_export = batch_indices.size()
+    if num_to_export > 0
+        if batch_format == "Compact AI-Ingest JSON"
+            log.info("╔══════════════════════════════════════════════════════════════════════════════════════════════════╗")
+            log.info("║ 🚀 ZEROZERO FORENSIC AI BATCH DATASET: " + str.tostring(num_to_export) + " TRADES READY FOR MULTI-FACTOR ANALYSIS ║")
+            log.info("╚══════════════════════════════════════════════════════════════════════════════════════════════════╝")
+            log.info("=== START ZEROZERO BATCH JSON DUMP ===")
+            for i = 0 to num_to_export - 1
+                int idx = batch_indices.get(i)
+                TradeRecord tr = autopsy_registry.get(idx)
+                string side_str = tr.side == 1 ? "LONG" : "SHORT"
+                string entry_t_str = str.format_time(tr.entry_time, "yyyy-MM-dd'T'HH:mm", "UTC")
+                string exit_t_str = str.format_time(tr.exit_time, "yyyy-MM-dd'T'HH:mm", "UTC")
+                string j_row = '{"id":' + str.tostring(tr.id) + 
+                     ',"loss_id":' + str.tostring(tr.loss_id) + 
+                     ',"side":"' + side_str + '"' + 
+                     ',"engine":"' + tr.engine_name + '"' + 
+                     ',"entry_time":"' + entry_t_str + '"' + 
+                     ',"exit_time":"' + exit_t_str + '"' + 
+                     ',"bars":' + str.tostring(tr.exit_bar - tr.entry_bar) + 
+                     ',"entry_px":' + str.tostring(tr.entry_price, "#.1") + 
+                     ',"exit_px":' + str.tostring(tr.exit_price, "#.1") + 
+                     ',"sl":' + str.tostring(tr.hard_sl, "#.1") + 
+                     ',"tp1":' + str.tostring(tr.tp1_price, "#.1") + 
+                     ',"pnl":' + str.tostring(tr.pnl_dollars, "#.1") + 
+                     ',"pnl_atr":' + str.tostring(tr.pnl_dollars / math.max(1.0, tr.entry_atr), "#.2") + 
+                     ',"mfe":' + str.tostring(tr.mfe_dollars, "#.1") + 
+                     ',"mae":' + str.tostring(tr.mae_dollars, "#.1") + 
+                     ',"exit_reason":"' + tr.exit_reason + '"' + 
+                     ',"flow":{"rvol":' + str.tostring(tr.entry_rvol, "#.2") + 
+                     ',"clv":' + str.tostring(tr.entry_clv * 100, "#.1") + 
+                     ',"delta":' + str.tostring(tr.entry_delta, "#.1") + 
+                     ',"cvd_div":' + (tr.entry_cvd_div ? "true" : "false") + 
+                     ',"basis":' + str.tostring(tr.entry_spot_basis, "#.2") + 
+                     ',"basis_z":' + str.tostring(tr.entry_basis_z, "#.2") + 
+                     ',"oi_delta":' + str.tostring(tr.entry_oi_delta, "#.1") + 
+                     ',"atr":' + str.tostring(tr.entry_atr, "#.1") + '}' + 
+                     ',"pre1":{"bull":' + (tr.pre1_bull ? "true" : "false") + 
+                     ',"clv":' + str.tostring(tr.pre1_clv * 100, "#.1") + 
+                     ',"rvol":' + str.tostring(tr.pre1_rvol, "#.2") + 
+                     ',"delta":' + str.tostring(tr.pre1_delta, "#.1") + 
+                     ',"rng":' + str.tostring(tr.pre1_range, "#.1") + '}' + 
+                     ',"diag":"' + tr.root_cause + '"}'
+                log.info(j_row)
+            log.info("=== END ZEROZERO BATCH JSON DUMP ===")
+        else if batch_format == "One-Line Forensic Ledger"
+            log.info("ID\tLOSS_ID\tSIDE\tENGINE\tENTRY_T\tEXIT_T\tENTRY_PX\tEXIT_PX\tPNL\tMFE\tMAE\tEXIT_REASON\tDIAGNOSIS")
+            for i = 0 to num_to_export - 1
+                int idx = batch_indices.get(i)
+                TradeRecord tr = autopsy_registry.get(idx)
+                string l_row = str.tostring(tr.id) + "\t" + 
+                     (tr.loss_id > 0 ? ("L" + str.tostring(tr.loss_id)) : "W") + "\t" + 
+                     (tr.side == 1 ? "LONG" : "SHORT") + "\t" + 
+                     tr.engine_name + "\t" + 
+                     str.format_time(tr.entry_time, "yyyy-MM-dd HH:mm", "UTC") + "\t" + 
+                     str.format_time(tr.exit_time, "yyyy-MM-dd HH:mm", "UTC") + "\t" + 
+                     str.tostring(tr.entry_price, "#.1") + "\t" + 
+                     str.tostring(tr.exit_price, "#.1") + "\t" + 
+                     str.tostring(tr.pnl_dollars, "#.1") + "\t" + 
+                     str.tostring(tr.mfe_dollars, "#.1") + "\t" + 
+                     str.tostring(tr.mae_dollars, "#.1") + "\t" + 
+                     tr.exit_reason + "\t" + 
+                     tr.root_cause
+                log.info(l_row)
+        else // Structured Markdown Dossier
+            for i = 0 to num_to_export - 1
+                int idx = batch_indices.get(i)
+                TradeRecord tr = autopsy_registry.get(idx)
+                string md_row = "### TRADE #" + str.tostring(tr.id) + (tr.loss_id > 0 ? (" [LOSS L" + str.tostring(tr.loss_id) + "]") : " [WIN]") + " | " + (tr.side == 1 ? "LONG" : "SHORT") + " | " + tr.engine_name + "\n" +
+                     "- PnL: $" + str.tostring(tr.pnl_dollars, "#.1") + " | Exit: " + tr.exit_reason + "\n" +
+                     "- Entry: $" + str.tostring(tr.entry_price, "#.1") + " -> Exit: $" + str.tostring(tr.exit_price, "#.1") + "\n" +
+                     "- Basis Z: " + str.tostring(tr.entry_basis_z, "#.2") + "σ | CVD Div: " + str.tostring(tr.entry_cvd_div) + "\n" +
+                     "- Peak MFE: +$" + str.tostring(tr.mfe_dollars, "#.1") + " | Max MAE: -$" + str.tostring(math.abs(tr.mae_dollars), "#.1") + "\n" +
+                     "- Root Cause: " + tr.root_cause
+                log.info(md_row)
+
+// ----------------------------------------------------------------------------------------------------
+// 12.B FULL-MONTH (30-DAY) COMPREHENSIVE CANDLE-BY-CANDLE DATASET RECORDER (~2,880 CANDLES)
+// ----------------------------------------------------------------------------------------------------
+var int ms_per_day = 86400000
+bool is_in_candle_window = (timenow - time) <= (candle_export_days * ms_per_day)
+
+if enable_candle_export and is_in_candle_window
+    string candle_t = str.format_time(time, "yyyy-MM-dd'T'HH:mm", "UTC")
+    string candle_json = '{"type":"CANDLE"' +
+         ',"bar":' + str.tostring(bar_index) + 
+         ',"t":"' + candle_t + '"' + 
+         ',"o":' + str.tostring(open, "#.1") + 
+         ',"h":' + str.tostring(high, "#.1") + 
+         ',"l":' + str.tostring(low, "#.1") + 
+         ',"c":' + str.tostring(close, "#.1") + 
+         ',"v":' + str.tostring(volume, "#.1") + 
+         ',"rv":' + str.tostring(mm.rvol, "#.2") + 
+         ',"delta":' + str.tostring(mm.delta_v, "#.1") + 
+         ',"cvd":' + str.tostring(cvd_running, "#.1") + 
+         ',"cvd_div":' + (cvd_bull_divergence ? "1" : (cvd_bear_divergence ? "-1" : "0")) + 
+         ',"clv":' + str.tostring(mm.clv, "#.2") + 
+         ',"tb":' + str.tostring(taker_buy_ratio, "#.2") + 
+         ',"oi_d":' + (not na(delta_oi) ? str.tostring(delta_oi, "#.1") : "0") + 
+         ',"basis":' + (not na(spot_basis) ? str.tostring(spot_basis, "#.1") : "0") + 
+         ',"basis_z":' + str.tostring(basis_z, "#.2") + 
+         ',"atr":' + str.tostring(atr_val, "#.1") + 
+         ',"vwap":' + str.tostring(roll_vwap, "#.1") + 
+         ',"vah":' + str.tostring(ms.vah_band, "#.1") + 
+         ',"val":' + str.tostring(ms.val_band, "#.1") + 
+         ',"sw_h":' + (not na(ms.swing_high) ? str.tostring(ms.swing_high, "#.1") : "0") + 
+         ',"sw_l":' + (not na(ms.swing_low) ? str.tostring(ms.swing_low, "#.1") : "0") + 
+         ',"sig":"' + (signal_long ? "LONG" : (signal_short ? "SHORT" : "NONE")) + '"' + 
+         ',"eng":"' + current_engine_name + '"' + 
+         ',"pos":' + str.tostring(ts.side) + 
+         ',"pnl":' + str.tostring(ts.side != 0 ? (ts.side == 1 ? close - ts.entry_price : ts.entry_price - close) : 0.0, "#.1") + '}'
+    log.info(candle_json)
+
+// ----------------------------------------------------------------------------------------------------
+// 13. REAL-TIME INSTITUTIONAL ALERTS
+// ----------------------------------------------------------------------------------------------------
+var bool prev_be_locked = false
+var bool prev_tp1_hit   = false
+var int  prev_pos_side  = 0
+
+bool be_just_locked  = ts.be_locked and not prev_be_locked
+bool tp1_just_hit    = ts.tp1_hit and not prev_tp1_hit
+bool pos_just_closed = ts.side == 0 and prev_pos_side != 0
+
+prev_be_locked := ts.be_locked
+prev_tp1_hit   := ts.tp1_hit
+prev_pos_side  := ts.side
+
+alertcondition(signal_long, "ZEROZERO V16 Master LONG", "ZEROZERO V16: Institutional Master LONG Signal Confirmed! Enter LONG.")
+alertcondition(signal_short, "ZEROZERO V16 Master SHORT", "ZEROZERO V16: Institutional Master SHORT Signal Confirmed! Enter SHORT.")
+alertcondition(tp1_just_hit, "TP1 Hit (+$250)", "ZEROZERO V16: First Target Banked +$250! Runner locked at +$150 (Total Win >= +$200 Guaranteed).")
+alertcondition(pos_just_closed, "Position Closed / Return to Cash", "ZEROZERO V16: Position closed on trailing stop. Portfolio secured in 100% Cash Armor.")

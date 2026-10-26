@@ -1,0 +1,7 @@
+requests
+python-dotenv
+httpx
+apscheduler
+typing-extensions
+google-generativeai
+pytz

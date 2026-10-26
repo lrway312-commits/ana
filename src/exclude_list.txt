@@ -1,0 +1,7 @@
+venv
+price_analysis
+logs
+state
+.git
+.pytest_cache
+__pycache__
