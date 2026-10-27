@@ -19,6 +19,8 @@ logging.basicConfig(
 logger = logging.getLogger("liquidation_collector")
 
 DATA_FILE = Path("liquidation_data.json")
+LAST_GITHUB_UPLOAD = 0
+GITHUB_SYNC_INTERVAL = 300 # مزامنة كل 5 دقائق كحد أقصى إلى GitHub
 
 def clean_old_records(records, max_age_minutes=60):
     """حذف السجلات الأقدم من 60 دقيقة لتجنب تضخم الملف"""
@@ -87,6 +89,23 @@ def on_message(ws, message):
                 records.append(record)
                 records = clean_old_records(records)
                 save_records(records)
+                
+                # مزامنة دورية إلى GitHub (كل 5 دقائق عند حدوث تصفيات جديدة)
+                global LAST_GITHUB_UPLOAD
+                now_ts = time.time()
+                if now_ts - LAST_GITHUB_UPLOAD >= GITHUB_SYNC_INTERVAL:
+                    LAST_GITHUB_UPLOAD = now_ts
+                    try:
+                        from src.github_uploader import upload_file_async
+                        upload_file_async(
+                            local_path=str(DATA_FILE),
+                            remote_folder="اللقطات الحية",
+                            commit_message="feat(live): update liquidation_data.json"
+                        )
+                        logger.info("📤 Triggered async sync of liquidation_data.json to GitHub")
+                    except Exception as up_err:
+                        logger.warning(f"Failed to sync liquidation data to GitHub: {up_err}")
+
                 
     except Exception as e:
         logger.error(f"Error processing message: {e}")
