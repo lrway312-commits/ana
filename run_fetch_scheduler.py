@@ -28,6 +28,14 @@ def save_json(data, out_dir, symbol):
 sys.path.append(r"c:\Users\Public")
 from src.binance_client import collect_snapshot
 
+try:
+    from src.github_uploader import upload_file_async
+except ImportError:
+    try:
+        from github_uploader import upload_file_async
+    except ImportError:
+        upload_file_async = None
+
 LOCK_FILE = "scheduler_fetch.lock"
 
 def acquire_lock(logger):
@@ -93,6 +101,28 @@ def run_once(symbol: str, out_dir: str, logger: logging.Logger) -> None:
             snapshot = collect_snapshot(symbol)
             json_path = save_json(snapshot, out_dir, symbol)
             logger.info(f"Saved JSON: {json_path}")
+            
+            # رفع اللقطة الحية تلقائياً إلى GitHub
+            if upload_file_async:
+                try:
+                    upload_file_async(
+                        local_path=json_path,
+                        remote_folder="اللقطات الحية",
+                        commit_message=f"feat(live): upload live snapshot {os.path.basename(json_path)}"
+                    )
+                    logger.info(f"Triggered GitHub async upload for: {os.path.basename(json_path)}")
+                    
+                    # رفع ملف liquidation_data.json المحدث أيضاً
+                    liq_path = os.path.join(os.getcwd(), "liquidation_data.json")
+                    if os.path.exists(liq_path):
+                        upload_file_async(
+                            local_path=liq_path,
+                            remote_folder="اللقطات الحية",
+                            commit_message="feat(live): update liquidation_data.json"
+                        )
+                except Exception as up_err:
+                    logger.warning(f"Failed to trigger GitHub upload: {up_err}")
+            
             return # نجاح
         except Exception as e:
             if attempt < max_retries - 1:
