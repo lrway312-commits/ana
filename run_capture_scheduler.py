@@ -171,8 +171,10 @@ def run_cycle(capture_module, analyze_module, priority_max=None):
                     f"Strength: {sig.get('signal_strength_pct','?')}%"
                 )
         except Exception as e:
+            logger.error(f"Analysis failed: {e}")
     else:
         logger.warning("analyze_charts module not loaded - skipping AI analysis")
+
 
     # 4. رفع لقطات الشارتات تلقائياً إلى GitHub
     try:
