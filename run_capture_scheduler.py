@@ -171,13 +171,21 @@ def run_cycle(capture_module, analyze_module, priority_max=None):
                     f"Strength: {sig.get('signal_strength_pct','?')}%"
                 )
         except Exception as e:
-            logger.error(f"Analysis failed: {e}")
     else:
         logger.warning("analyze_charts module not loaded - skipping AI analysis")
+
+    # 4. رفع لقطات الشارتات تلقائياً إلى GitHub
+    try:
+        from src.github_uploader import upload_charts_dir_async
+        upload_charts_dir_async(CHARTS_DIR, remote_folder="اللقطات الحية/charts")
+        logger.info("📤 Triggered async upload of captured charts to GitHub (اللقطات الحية/charts)")
+    except Exception as up_err:
+        logger.warning(f"Failed to trigger charts upload to GitHub: {up_err}")
 
     elapsed = time.time() - cycle_start
     logger.info(f"Cycle completed in {elapsed:.1f}s")
     return True
+
 
 
 def main():
