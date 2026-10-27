@@ -12,8 +12,9 @@ The system integrates real-time institutional order book dynamics, Level-3 trade
 ---
 
 ## 🏛️ Master Protocol & Constitutional Documentation
-* **[ZeroZero_Protocol_V16_Sovereign_Master.md](file:///c:/Users/ersan/Desktop/ZERO_BTC_FINAL/ZeroZero_Protocol_V16_Sovereign_Master.md)**: The supreme constitutional protocol defining all 5 execution engines, 15+ mandatory zero-tolerance vetoes, dynamic risk management, and the cumulative rule evolution across all 90 recorded trades.
-* **[price_analysis/CONTINUOUS_FORENSIC_JOURNAL.md](file:///c:/Users/ersan/Desktop/ZERO_BTC_FINAL/price_analysis/CONTINUOUS_FORENSIC_JOURNAL.md)**: The continuous live forensic journal documenting all 30-minute forensic cycles (Cycles 1000 through 1106+).
+* **[ZeroZero_Protocol_V16_Sovereign_Master.md](file:///c:/Users/ersan/Desktop/ZERO_BTC_FINAL/ZeroZero_Protocol_V16_Sovereign_Master.md)**: The supreme constitutional protocol defining all 5 execution engines, 15+ mandatory zero-tolerance vetoes, dynamic risk management, and the cumulative rule evolution across all 92 recorded trades.
+* **[MASTER_TRADES_AND_FORENSIC_SNAPSHOTS_REGISTRY.md](file:///c:/Users/ersan/Desktop/ZERO_BTC_FINAL/MASTER_TRADES_AND_FORENSIC_SNAPSHOTS_REGISTRY.md)**: The dedicated master trade registry indexing all 92 trades, their exact execution snapshots, PnL outcomes, and microstructure Catalysts.
+* **[price_analysis/CONTINUOUS_FORENSIC_JOURNAL.md](file:///c:/Users/ersan/Desktop/ZERO_BTC_FINAL/price_analysis/CONTINUOUS_FORENSIC_JOURNAL.md)**: The continuous live forensic journal documenting all 30-minute forensic cycles (Cycles 1000 through 1113+).
 
 ---
 
