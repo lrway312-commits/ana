@@ -1,13 +1,12 @@
-import sys, json, os
+import sys, json, os, math
 sys.stdout.reconfigure(encoding='utf-8')
 
-f = 'price_analysis/بيانات/BTCUSDT_snapshot_1793249952255.json'
+f = 'price_analysis/بيانات/BTCUSDT_snapshot_1793251751914.json'
 with open(f, 'r', encoding='utf-8') as fp:
     d = json.load(fp)
 
 cur = d.get('current', {})
 series = d.get('series', {})
-analysis = d.get('analysis', {})
 ob = d.get('order_book', {})
 
 p = cur.get('current_price') or d.get('price')
@@ -36,7 +35,6 @@ asks = ob.get('asks', [])
 b_sum = sum(float(b[1]) for b in bids[:15]) if bids else 0.0
 a_sum = sum(float(a[1]) for a in asks[:15]) if asks else 0.0
 
-# Calculate AVWAP
 cum_vol = 0.0
 cum_pv = 0.0
 for k in klines[-20:]:
@@ -47,15 +45,13 @@ for k in klines[-20:]:
         cum_pv += (cv * vv)
 avwap_mean = cum_pv / cum_vol if cum_vol > 0 else p
 
-# Calculate standard deviation of close for bands
-import math
 variance = sum(((float(k[4]) - avwap_mean)**2) * float(k[5]) for k in klines[-20:] if isinstance(k, list) and len(k) >= 6) / cum_vol if cum_vol > 0 else 0
 std_dev = math.sqrt(variance) if variance > 0 else 50.0
 
 avwap_upper1 = avwap_mean + std_dev
 avwap_lower1 = avwap_mean - std_dev
 
-print(f"LATEST LIVE SNAPSHOT AUDIT:")
+print(f"LATEST LIVE SNAPSHOT AUDIT (CYCLE 1188):")
 print(f"File: {os.path.basename(f)}")
 print(f"Timestamp: {d.get('timestamp')}")
 print(f"Futures Price: ${p:,.2f}")
